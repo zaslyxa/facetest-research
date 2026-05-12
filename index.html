@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Исследование узнавания лиц</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell" id="app">
+      <section class="view hidden" id="unsupportedView" aria-labelledby="unsupportedTitle">
+        <div class="panel panel--narrow">
+          <p class="eyebrow">Ограничение устройства</p>
+          <h1 id="unsupportedTitle">Тест доступен только с компьютера</h1>
+          <p class="lede" id="unsupportedMessage">
+            Откройте ссылку на ноутбуке или настольном компьютере.
+          </p>
+        </div>
+      </section>
+
+      <section class="view view--setup" id="setupView" aria-labelledby="setupTitle">
+        <div class="panel">
+          <p class="eyebrow">Психологическое исследование</p>
+          <h1 id="setupTitle">Исследование узнавания лиц</h1>
+          <p class="lede">
+            Заполните короткую анкету перед началом. После старта фотографии будут
+            показываться по одной.
+          </p>
+
+          <form class="form-grid" id="participantForm">
+            <label class="field">
+              <span>Имя</span>
+              <input type="text" name="name" autocomplete="name" required>
+            </label>
+
+            <label class="field">
+              <span>Возраст</span>
+              <input type="number" name="age" min="1" max="120" inputmode="numeric" required>
+            </label>
+
+            <label class="field">
+              <span>Пол</span>
+              <select name="gender" required>
+                <option value="" selected disabled>Выберите</option>
+                <option value="female">Женский</option>
+                <option value="male">Мужской</option>
+                <option value="other">Другое</option>
+                <option value="prefer_not_to_say">Предпочитаю не указывать</option>
+              </select>
+            </label>
+
+            <label class="field" id="setField">
+              <span>Группа фотографий</span>
+              <select name="photoSetId" id="photoSetSelect" required></select>
+            </label>
+
+            <p class="form-error" id="setupError" role="alert"></p>
+
+            <button class="primary-action" type="submit">Продолжить</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="view hidden" id="readyView" aria-labelledby="readyTitle">
+        <div class="panel panel--narrow">
+          <p class="eyebrow" id="readyGroup"></p>
+          <h2 id="readyTitle">Готово к началу</h2>
+          <p class="lede">
+            На каждую фотографию отводится <span id="durationLabel">3 секунды</span>. Нажмите Y, если узнали человека,
+            или N, если не узнали.
+          </p>
+          <p class="muted" id="loadStatus">Стимулы будут подготовлены перед стартом.</p>
+          <button class="primary-action" id="beginButton" type="button">Начать демонстрацию</button>
+        </div>
+      </section>
+
+      <section class="view view--experiment hidden" id="experimentView" aria-label="Демонстрация фотографий">
+        <header class="experiment-header">
+          <div>
+            <p class="eyebrow" id="experimentSet"></p>
+            <h2 id="progressText">Фото 1 из 1</h2>
+          </div>
+          <div class="timer" aria-label="Оставшееся время">
+            <span id="timerText">3.0</span>
+            <span>с</span>
+          </div>
+        </header>
+
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <figure class="stimulus-frame">
+          <img class="hidden" id="stimulusImage" alt="Стимул исследования">
+          <div class="number-stimulus hidden" id="numberStimulus" aria-label="Числовой стимул"></div>
+          <figcaption id="stimulusCaption">Ответьте Y или N</figcaption>
+        </figure>
+
+        <div class="response-grid" aria-label="Ответ">
+          <button class="response-button response-button--yes" data-answer="Y" type="button">
+            <span class="keycap">Y</span>
+            Узнал(а)
+          </button>
+          <button class="response-button response-button--no" data-answer="N" type="button">
+            <span class="keycap">N</span>
+            Не узнал(а)
+          </button>
+        </div>
+      </section>
+
+      <section class="view hidden" id="questionView" aria-labelledby="questionTitle">
+        <div class="panel panel--narrow">
+          <p class="eyebrow" id="questionPhotoId"></p>
+          <h2 id="questionTitle">Что именно вы запомнили о человеке?</h2>
+          <form id="memoryForm" class="memory-form">
+            <textarea id="memoryText" name="memoryText" rows="7" required></textarea>
+            <button class="primary-action" type="submit">Сохранить ответ</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="view hidden" id="finishView" aria-labelledby="finishTitle">
+        <div class="panel panel--narrow">
+          <p class="eyebrow">Сессия завершена</p>
+          <h2 id="finishTitle">Спасибо за участие</h2>
+          <p class="lede" id="finishSummary"></p>
+          <p class="save-status" id="saveStatus" role="status"></p>
+          <button class="secondary-action hidden" id="downloadCsvButton" type="button">
+            Скачать CSV
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="data/photo-sets.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,5 +1,5 @@
 window.EXPERIMENT_CONFIG = {
-  supabaseUrl: "",
+  supabaseUrl: "https://damqmeneqopwnvxutdtc.supabase.co",
   supabaseAnonKey: "",
   supabaseTable: "experiment_responses",
   stimulusDurationMs: 3000,

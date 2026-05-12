@@ -29,7 +29,6 @@ const state = {
   stimulusStartedAt: 0,
   stimulusStartedIso: "",
   stimulusTimerId: null,
-  countdownTimerId: null,
   sessionId: createId()
 };
 
@@ -49,14 +48,8 @@ const els = {
   durationLabel: document.getElementById("durationLabel"),
   loadStatus: document.getElementById("loadStatus"),
   beginButton: document.getElementById("beginButton"),
-  experimentSet: document.getElementById("experimentSet"),
-  progressText: document.getElementById("progressText"),
-  progressFill: document.getElementById("progressFill"),
-  timerText: document.getElementById("timerText"),
   stimulusImage: document.getElementById("stimulusImage"),
   numberStimulus: document.getElementById("numberStimulus"),
-  stimulusCaption: document.getElementById("stimulusCaption"),
-  responseButtons: Array.from(document.querySelectorAll("[data-answer]")),
   questionTitle: document.getElementById("questionTitle"),
   questionPhotoId: document.getElementById("questionPhotoId"),
   memoryForm: document.getElementById("memoryForm"),
@@ -96,16 +89,14 @@ function bindEvents() {
   els.memoryForm.addEventListener("submit", handleMemorySubmit);
   els.downloadCsvButton.addEventListener("click", downloadCsv);
 
-  els.responseButtons.forEach((button) => {
-    button.addEventListener("click", () => handleRecognition(button.dataset.answer));
-  });
-
   window.addEventListener("keydown", (event) => {
-    if (state.phase !== "stimulus" || event.repeat) return;
+    if (!["stimulus", "waiting_response"].includes(state.phase) || event.repeat) return;
 
-    const answer = event.key.toLowerCase();
-    if (answer === "y") handleRecognition("Y");
-    if (answer === "n") handleRecognition("N");
+    const answer = getKeyboardAnswer(event);
+    if (!answer) return;
+
+    event.preventDefault();
+    handleRecognition(answer);
   });
 }
 
@@ -254,11 +245,6 @@ function showNextTrial() {
   state.currentRow = null;
   state.phase = "stimulus";
 
-  const total = state.trials.length;
-  els.experimentSet.textContent = state.selectedSet.label;
-  els.progressText.textContent = `Стимул ${state.trialIndex + 1} из ${total}`;
-  els.progressFill.style.width = `${(state.trialIndex / total) * 100}%`;
-  els.stimulusCaption.textContent = "Ответьте Y или N";
   renderStimulus(trial);
 
   showView("experiment");
@@ -266,32 +252,17 @@ function showNextTrial() {
   requestAnimationFrame(() => {
     state.stimulusStartedAt = performance.now();
     state.stimulusStartedIso = new Date().toISOString();
-    startCountdown();
-    state.stimulusTimerId = window.setTimeout(() => handleNoResponse(), config.stimulusDurationMs);
+    state.stimulusTimerId = window.setTimeout(() => hideStimulusAndWait(), config.stimulusDurationMs);
   });
 }
 
-function startCountdown() {
-  clearInterval(state.countdownTimerId);
-  const duration = config.stimulusDurationMs;
-
-  const update = () => {
-    const elapsed = performance.now() - state.stimulusStartedAt;
-    const remainingMs = Math.max(0, duration - elapsed);
-    els.timerText.textContent = (remainingMs / 1000).toFixed(1);
-  };
-
-  update();
-  state.countdownTimerId = window.setInterval(update, 100);
-}
-
 function handleRecognition(answer) {
-  if (state.phase !== "stimulus") return;
+  if (!["stimulus", "waiting_response"].includes(state.phase)) return;
 
   state.phase = answer === "Y" ? "question" : "between";
   const reactionTimeMs = Math.round(performance.now() - state.stimulusStartedAt);
   clearStimulusTimers();
-  setResponseButtonsEnabled(false);
+  clearStimulusDisplay();
 
   const row = buildRow({
     answer,
@@ -311,28 +282,15 @@ function handleRecognition(answer) {
   }
 
   state.rows.push(row);
-  setResponseButtonsEnabled(true);
   showNextTrial();
 }
 
-function handleNoResponse() {
+function hideStimulusAndWait() {
   if (state.phase !== "stimulus") return;
 
-  state.phase = "between";
+  state.phase = "waiting_response";
   clearStimulusTimers();
-  setResponseButtonsEnabled(false);
-
-  state.rows.push(buildRow({
-    answer: "NO_RESPONSE",
-    recognized: null,
-    memoryText: "",
-    reactionTimeMs: null
-  }));
-
-  window.setTimeout(() => {
-    setResponseButtonsEnabled(true);
-    showNextTrial();
-  }, 180);
+  clearStimulusDisplay();
 }
 
 function handleMemorySubmit(event) {
@@ -340,10 +298,9 @@ function handleMemorySubmit(event) {
 
   if (!state.currentRow) return;
 
-  state.currentRow.memoryText = els.memoryText.value.trim();
+  state.currentRow.memory_text = els.memoryText.value.trim();
   state.rows.push(state.currentRow);
   state.currentRow = null;
-  setResponseButtonsEnabled(true);
   showNextTrial();
 }
 
@@ -379,7 +336,6 @@ function buildRow({ answer, recognized, memoryText, reactionTimeMs }) {
 async function finishExperiment() {
   clearStimulusTimers();
   state.phase = "finish";
-  els.progressFill.style.width = "100%";
   els.finishSummary.textContent = `Записано ответов: ${state.rows.length}. ID сессии: ${state.sessionId}.`;
   els.saveStatus.textContent = "Сохраняем результаты...";
   els.downloadCsvButton.classList.toggle("hidden", !debugMode);
@@ -513,15 +469,7 @@ function showView(viewName) {
 
 function clearStimulusTimers() {
   window.clearTimeout(state.stimulusTimerId);
-  window.clearInterval(state.countdownTimerId);
   state.stimulusTimerId = null;
-  state.countdownTimerId = null;
-}
-
-function setResponseButtonsEnabled(enabled) {
-  els.responseButtons.forEach((button) => {
-    button.disabled = !enabled;
-  });
 }
 
 function getSetStimuli(set) {
@@ -540,6 +488,23 @@ function renderStimulus(trial) {
   els.stimulusImage.removeAttribute("src");
   els.numberStimulus.classList.remove("hidden");
   els.numberStimulus.textContent = String(trial.value);
+}
+
+function clearStimulusDisplay() {
+  els.stimulusImage.classList.add("hidden");
+  els.stimulusImage.removeAttribute("src");
+  els.numberStimulus.classList.add("hidden");
+  els.numberStimulus.textContent = "";
+}
+
+function getKeyboardAnswer(event) {
+  if (event.code === "KeyY") return "Y";
+  if (event.code === "KeyN") return "N";
+
+  const key = event.key.toLowerCase();
+  if (key === "y" || key === "н") return "Y";
+  if (key === "n" || key === "т") return "N";
+  return null;
 }
 
 function getDeviceCheck() {

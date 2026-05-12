@@ -23,8 +23,8 @@
           <p class="eyebrow">Психологическое исследование</p>
           <h1 id="setupTitle">Исследование узнавания лиц</h1>
           <p class="lede">
-            Заполните короткую анкету перед началом. После старта фотографии будут
-            показываться по одной.
+            Заполните короткую анкету перед началом. После старта стимулы будут
+            показываться по одному.
           </p>
 
           <form class="form-grid" id="participantForm">
@@ -50,7 +50,7 @@
             </label>
 
             <label class="field" id="setField">
-              <span>Группа фотографий</span>
+              <span>Группа стимулов</span>
               <select name="photoSetId" id="photoSetSelect" required></select>
             </label>
 
@@ -66,46 +66,19 @@
           <p class="eyebrow" id="readyGroup"></p>
           <h2 id="readyTitle">Готово к началу</h2>
           <p class="lede">
-            На каждую фотографию отводится <span id="durationLabel">3 секунды</span>. Нажмите Y, если узнали человека,
-            или N, если не узнали.
+            Каждый стимул будет показан на <span id="durationLabel">3 секунды</span>, затем экран станет пустым.
+            После этого нажмите Y, если узнали человека, или N, если не узнали.
           </p>
           <p class="muted" id="loadStatus">Стимулы будут подготовлены перед стартом.</p>
           <button class="primary-action" id="beginButton" type="button">Начать демонстрацию</button>
         </div>
       </section>
 
-      <section class="view view--experiment hidden" id="experimentView" aria-label="Демонстрация фотографий">
-        <header class="experiment-header">
-          <div>
-            <p class="eyebrow" id="experimentSet"></p>
-            <h2 id="progressText">Фото 1 из 1</h2>
-          </div>
-          <div class="timer" aria-label="Оставшееся время">
-            <span id="timerText">3.0</span>
-            <span>с</span>
-          </div>
-        </header>
-
-        <div class="progress-track" aria-hidden="true">
-          <div class="progress-fill" id="progressFill"></div>
-        </div>
-
+      <section class="view view--experiment hidden" id="experimentView" aria-label="Демонстрация стимула">
         <figure class="stimulus-frame">
           <img class="hidden" id="stimulusImage" alt="Стимул исследования">
           <div class="number-stimulus hidden" id="numberStimulus" aria-label="Числовой стимул"></div>
-          <figcaption id="stimulusCaption">Ответьте Y или N</figcaption>
         </figure>
-
-        <div class="response-grid" aria-label="Ответ">
-          <button class="response-button response-button--yes" data-answer="Y" type="button">
-            <span class="keycap">Y</span>
-            Узнал(а)
-          </button>
-          <button class="response-button response-button--no" data-answer="N" type="button">
-            <span class="keycap">N</span>
-            Не узнал(а)
-          </button>
-        </div>
       </section>
 
       <section class="view hidden" id="questionView" aria-labelledby="questionTitle">

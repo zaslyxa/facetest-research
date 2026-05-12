@@ -16,7 +16,7 @@ create table if not exists public.experiment_responses (
   stimulus_order integer not null,
   stimulus_type text not null check (stimulus_type in ('number', 'image')),
   stimulus_value text,
-  answer text not null check (answer in ('Y', 'N', 'NO_RESPONSE')),
+  answer text not null check (answer in ('Y', 'N')),
   recognized boolean,
   memory_text text,
   reaction_time_ms integer check (reaction_time_ms is null or reaction_time_ms >= 0),

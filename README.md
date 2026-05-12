@@ -90,7 +90,7 @@ window.EXPERIMENT_CONFIG = {
 - имя, возраст, пол
 - размер экрана: `screen_width`, `screen_height`, `viewport_width`, `viewport_height`, `device_pixel_ratio`
 - набор стимулов, порядок показа, ID стимула, тип стимула, значение стимула
-- ответ `Y`, `N` или `NO_RESPONSE`
+- ответ `Y` или `N`
 - открытый текстовый ответ
 - `reaction_time_ms`
 - время показа стимула

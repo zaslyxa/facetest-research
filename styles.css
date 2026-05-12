@@ -48,10 +48,10 @@ button {
 }
 
 .view--experiment {
-  align-content: center;
-  grid-template-rows: auto auto minmax(240px, 62vh) auto;
-  gap: 18px;
-  padding: 24px;
+  background: #ffffff;
+  align-content: stretch;
+  grid-template-rows: minmax(0, 1fr);
+  padding: 0;
 }
 
 .hidden {
@@ -186,59 +186,12 @@ button:focus-visible {
   color: var(--text);
 }
 
-.experiment-header {
-  width: min(1120px, 100%);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.experiment-header h2 {
-  font-size: clamp(1.35rem, 3vw, 2rem);
-}
-
-.timer {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  min-width: 86px;
-  justify-content: center;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #ffffff;
-  padding: 10px 14px;
-  font-weight: 800;
-  box-shadow: 0 8px 22px rgba(31, 41, 55, 0.08);
-}
-
-#timerText {
-  font-variant-numeric: tabular-nums;
-}
-
-.progress-track {
-  width: min(1120px, 100%);
-  height: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #dbe4ee;
-}
-
-.progress-fill {
-  width: 0%;
-  height: 100%;
-  background: var(--accent);
-  transition: width 160ms linear;
-}
-
 .stimulus-frame {
-  width: min(1120px, 100%);
+  width: 100%;
   height: 100%;
-  min-height: 240px;
   margin: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 12px;
+  place-items: center;
   container-type: size;
 }
 
@@ -247,13 +200,15 @@ button:focus-visible {
   width: 100%;
   height: 100%;
   min-height: 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 0;
+  border-radius: 0;
   background: #ffffff;
-  box-shadow: var(--shadow);
+  box-shadow: none;
 }
 
 .stimulus-frame img {
+  width: min(100vw, 100cqw);
+  height: min(100vh, 100cqh);
   object-fit: contain;
 }
 
@@ -264,59 +219,6 @@ button:focus-visible {
   font-size: clamp(7rem, 42cqmin, 18rem);
   font-weight: 800;
   line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.stimulus-frame figcaption {
-  color: var(--muted);
-  text-align: center;
-  font-size: 0.95rem;
-}
-
-.response-grid {
-  width: min(720px, 100%);
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.response-button {
-  min-height: 64px;
-  border: 0;
-  border-radius: 8px;
-  color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: clamp(1rem, 3vw, 1.2rem);
-  font-weight: 800;
-}
-
-.response-button--yes {
-  background: var(--accent);
-}
-
-.response-button--yes:hover {
-  background: var(--accent-dark);
-}
-
-.response-button--no {
-  background: var(--danger);
-}
-
-.response-button--no:hover {
-  background: var(--danger-dark);
-}
-
-.keycap {
-  min-width: 34px;
-  min-height: 34px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.28);
   font-variant-numeric: tabular-nums;
 }
 
@@ -338,23 +240,7 @@ button:focus-visible {
     padding: 18px 12px;
   }
 
-  .view--experiment {
-    grid-template-rows: auto auto minmax(230px, 56vh) auto;
-    gap: 12px;
-  }
-
-  .form-grid,
-  .response-grid {
+  .form-grid {
     grid-template-columns: 1fr;
   }
-
-  .experiment-header {
-    align-items: flex-start;
-  }
-
-  .timer {
-    min-width: 72px;
-    padding: 9px 10px;
-  }
-
 }

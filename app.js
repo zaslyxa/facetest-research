@@ -405,16 +405,20 @@ async function saveToSupabase(rows) {
   }
 
   const endpoint = `${config.supabaseUrl.replace(/\/$/, "")}/rest/v1/${config.supabaseTable}`;
+  const headers = {
+    apikey: config.supabaseAnonKey,
+    "Content-Type": "application/json",
+    Prefer: "return=minimal"
+  };
+
+  if (!config.supabaseAnonKey.startsWith("sb_publishable_")) {
+    headers.Authorization = `Bearer ${config.supabaseAnonKey}`;
+  }
 
   try {
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: {
-        apikey: config.supabaseAnonKey,
-        Authorization: `Bearer ${config.supabaseAnonKey}`,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal"
-      },
+      headers,
       body: JSON.stringify(rows)
     });
 

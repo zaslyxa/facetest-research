@@ -1,3 +1,35 @@
+create table if not exists public.experiment_sessions (
+  session_id uuid primary key,
+  created_at timestamptz not null default now(),
+  participant_id uuid not null,
+  participant_identifier text not null,
+  participant_age integer not null check (participant_age between 1 and 120),
+  participant_gender text not null,
+  institution text not null,
+  screen_width integer not null,
+  screen_height integer not null,
+  viewport_width integer not null,
+  viewport_height integer not null,
+  device_pixel_ratio numeric not null,
+  stimulus_set_id text not null,
+  questionnaire_answers jsonb not null,
+  user_agent text
+);
+
+alter table public.experiment_sessions enable row level security;
+
+grant insert on public.experiment_sessions to anon;
+
+drop policy if exists "anonymous participants can insert sessions" on public.experiment_sessions;
+create policy "anonymous participants can insert sessions"
+on public.experiment_sessions
+for insert
+to anon
+with check (true);
+
+create index if not exists experiment_sessions_created_at_idx
+on public.experiment_sessions (created_at);
+
 create table if not exists public.experiment_responses (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),

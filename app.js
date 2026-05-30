@@ -23,6 +23,9 @@ const state = {
   trials: [],
   trialIndex: -1,
   rows: [],
+  surveyQuestions: [],
+  surveyIndex: 0,
+  questionnaireAnswers: {},
   phase: "setup",
   currentTrial: null,
   currentRow: null,
@@ -36,6 +39,7 @@ const els = {
   unsupportedView: document.getElementById("unsupportedView"),
   unsupportedMessage: document.getElementById("unsupportedMessage"),
   setupView: document.getElementById("setupView"),
+  surveyView: document.getElementById("surveyView"),
   readyView: document.getElementById("readyView"),
   experimentView: document.getElementById("experimentView"),
   questionView: document.getElementById("questionView"),
@@ -44,6 +48,16 @@ const els = {
   setField: document.getElementById("setField"),
   photoSetSelect: document.getElementById("photoSetSelect"),
   setupError: document.getElementById("setupError"),
+  surveyForm: document.getElementById("surveyForm"),
+  surveyProgress: document.getElementById("surveyProgress"),
+  surveyCounter: document.getElementById("surveyCounter"),
+  surveySectionTitle: document.getElementById("surveySectionTitle"),
+  surveyDescription: document.getElementById("surveyDescription"),
+  surveyQuestion: document.getElementById("surveyQuestion"),
+  surveyOptions: document.getElementById("surveyOptions"),
+  surveyError: document.getElementById("surveyError"),
+  surveyBackButton: document.getElementById("surveyBackButton"),
+  surveyNextButton: document.getElementById("surveyNextButton"),
   readyGroup: document.getElementById("readyGroup"),
   durationLabel: document.getElementById("durationLabel"),
   loadStatus: document.getElementById("loadStatus"),
@@ -85,6 +99,8 @@ async function init() {
 
 function bindEvents() {
   els.participantForm.addEventListener("submit", handleParticipantSubmit);
+  els.surveyForm.addEventListener("submit", handleSurveySubmit);
+  els.surveyBackButton.addEventListener("click", handleSurveyBack);
   els.beginButton.addEventListener("click", beginExperiment);
   els.memoryForm.addEventListener("submit", handleMemorySubmit);
   els.downloadCsvButton.addEventListener("click", downloadCsv);
@@ -187,11 +203,19 @@ function handleParticipantSubmit(event) {
     return;
   }
 
+  const identifier = String(formData.get("identifier")).trim();
+  const institution = String(formData.get("institution")).trim();
+  if (!identifier || !institution) {
+    els.setupError.textContent = "Заполните ID испытуемого и вуз/факультет.";
+    return;
+  }
+
   state.participant = {
     id: createId(),
-    name: String(formData.get("name")).trim(),
+    identifier,
     age,
-    gender: String(formData.get("gender"))
+    gender: String(formData.get("gender")),
+    institution
   };
 
   state.selectedSet = selectedSet;
@@ -200,8 +224,108 @@ function handleParticipantSubmit(event) {
     order: index + 1
   }));
 
-  els.readyGroup.textContent = selectedSet.label;
+  state.surveyQuestions = flattenSurveyQuestions();
+  state.surveyIndex = 0;
+  state.questionnaireAnswers = {};
+  state.phase = "survey";
+  renderSurveyQuestion();
+  showView("survey");
+}
+
+async function handleSurveySubmit(event) {
+  event.preventDefault();
+  els.surveyError.textContent = "";
+
+  const current = state.surveyQuestions[state.surveyIndex];
+  const selected = new FormData(els.surveyForm).get("surveyAnswer");
+
+  if (!selected) {
+    els.surveyError.textContent = "Выберите один вариант ответа.";
+    return;
+  }
+
+  state.questionnaireAnswers[current.question.id] = selected;
+
+  if (state.surveyIndex < state.surveyQuestions.length - 1) {
+    state.surveyIndex += 1;
+    renderSurveyQuestion();
+    return;
+  }
+
+  els.surveyNextButton.disabled = true;
+  els.surveyBackButton.disabled = true;
+  els.surveyError.textContent = "Сохраняем ответы...";
+
+  const result = await saveSessionToSupabase();
+  if (!result.ok) {
+    els.surveyError.textContent = result.message;
+    els.surveyNextButton.disabled = false;
+    els.surveyBackButton.disabled = false;
+    return;
+  }
+
+  els.readyGroup.textContent = state.selectedSet.label;
+  state.phase = "ready";
   showView("ready");
+}
+
+function handleSurveyBack() {
+  if (state.surveyIndex === 0) return;
+
+  state.surveyIndex -= 1;
+  els.surveyError.textContent = "";
+  renderSurveyQuestion();
+}
+
+function flattenSurveyQuestions() {
+  const questionnaire = window.PRETEST_QUESTIONNAIRE;
+  if (!questionnaire?.sections?.length) {
+    throw new Error("Не удалось загрузить предтестовый опросник.");
+  }
+
+  return questionnaire.sections.flatMap((section) => (
+    section.questions.map((question) => ({ section, question }))
+  ));
+}
+
+function renderSurveyQuestion() {
+  const current = state.surveyQuestions[state.surveyIndex];
+  const { section, question } = current;
+  const savedAnswer = state.questionnaireAnswers[question.id];
+
+  els.surveyProgress.textContent = "Опрос перед тестом";
+  els.surveyCounter.textContent = `${state.surveyIndex + 1} / ${state.surveyQuestions.length}`;
+  els.surveySectionTitle.textContent = section.title;
+  els.surveyDescription.textContent = section.description;
+  els.surveyQuestion.textContent = getQuestionText(question);
+  els.surveyOptions.innerHTML = "";
+  els.surveyBackButton.disabled = state.surveyIndex === 0;
+  els.surveyNextButton.disabled = false;
+  els.surveyNextButton.textContent = state.surveyIndex === state.surveyQuestions.length - 1
+    ? "Завершить опрос"
+    : "Далее";
+
+  section.options.forEach((option) => {
+    const label = document.createElement("label");
+    label.className = "survey-option";
+
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "surveyAnswer";
+    input.value = option.value;
+    input.checked = option.value === savedAnswer;
+
+    const text = document.createElement("span");
+    text.textContent = option.label;
+
+    label.append(input, text);
+    els.surveyOptions.append(label);
+  });
+}
+
+function getQuestionText(question) {
+  if (typeof question.text === "string") return question.text;
+  return state.participant.gender === "female" ? question.text.female : question.text.male;
 }
 
 async function beginExperiment() {
@@ -311,7 +435,7 @@ function buildRow({ answer, recognized, memoryText, reactionTimeMs }) {
   return {
     session_id: state.sessionId,
     participant_id: participant.id,
-    participant_name: participant.name,
+    participant_name: participant.identifier,
     participant_age: participant.age,
     participant_gender: participant.gender,
     screen_width: window.screen.width,
@@ -351,6 +475,58 @@ async function finishExperiment() {
   els.saveStatus.textContent = result.message;
 }
 
+async function saveSessionToSupabase() {
+  const hasConfig = config.supabaseUrl && config.supabaseAnonKey;
+  if (!hasConfig) {
+    return {
+      ok: false,
+      message: "Supabase пока не настроен. Невозможно сохранить опросник."
+    };
+  }
+
+  const endpoint = `${config.supabaseUrl.replace(/\/$/, "")}/rest/v1/experiment_sessions?on_conflict=session_id`;
+  const participant = state.participant;
+  const row = {
+    session_id: state.sessionId,
+    participant_id: participant.id,
+    participant_identifier: participant.identifier,
+    participant_age: participant.age,
+    participant_gender: participant.gender,
+    institution: participant.institution,
+    screen_width: window.screen.width,
+    screen_height: window.screen.height,
+    viewport_width: window.innerWidth,
+    viewport_height: window.innerHeight,
+    device_pixel_ratio: window.devicePixelRatio || 1,
+    stimulus_set_id: state.selectedSet.id,
+    questionnaire_answers: state.questionnaireAnswers,
+    user_agent: navigator.userAgent
+  };
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: buildSupabaseHeaders("resolution=ignore-duplicates,return=minimal"),
+      body: JSON.stringify(row)
+    });
+
+    if (!response.ok) {
+      const message = await response.text();
+      return {
+        ok: false,
+        message: `Не удалось сохранить опросник в Supabase: ${message || response.status}.`
+      };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Нет соединения с базой. Попробуйте ещё раз: ${error.message}`
+    };
+  }
+}
+
 async function saveToSupabase(rows) {
   const hasConfig = config.supabaseUrl && config.supabaseAnonKey;
   if (!hasConfig) {
@@ -361,20 +537,10 @@ async function saveToSupabase(rows) {
   }
 
   const endpoint = `${config.supabaseUrl.replace(/\/$/, "")}/rest/v1/${config.supabaseTable}`;
-  const headers = {
-    apikey: config.supabaseAnonKey,
-    "Content-Type": "application/json",
-    Prefer: "return=minimal"
-  };
-
-  if (!config.supabaseAnonKey.startsWith("sb_publishable_")) {
-    headers.Authorization = `Bearer ${config.supabaseAnonKey}`;
-  }
-
   try {
     const response = await fetch(endpoint, {
       method: "POST",
-      headers,
+      headers: buildSupabaseHeaders(),
       body: JSON.stringify(rows)
     });
 
@@ -393,6 +559,20 @@ async function saveToSupabase(rows) {
       message: `Нет соединения с базой. Результаты временно сохранены в браузере: ${error.message}`
     };
   }
+}
+
+function buildSupabaseHeaders(prefer = "return=minimal") {
+  const headers = {
+    apikey: config.supabaseAnonKey,
+    "Content-Type": "application/json",
+    Prefer: prefer
+  };
+
+  if (!config.supabaseAnonKey.startsWith("sb_publishable_")) {
+    headers.Authorization = `Bearer ${config.supabaseAnonKey}`;
+  }
+
+  return headers;
 }
 
 function queueFailedSubmission(rows) {
@@ -457,6 +637,7 @@ function showView(viewName) {
   const map = {
     unsupported: els.unsupportedView,
     setup: els.setupView,
+    survey: els.surveyView,
     ready: els.readyView,
     experiment: els.experimentView,
     question: els.questionView,

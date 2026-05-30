@@ -1,5 +1,5 @@
 select
-  participant_id as "ID испытуемого",
+  participant_name as "ID испытуемого",
   concat(screen_width, 'x', screen_height) as "Размер экрана",
   stimulus_id as "ID стимула",
   answer as "Y/N",

@@ -5,6 +5,7 @@ const vm = require("vm");
 const root = path.resolve(__dirname, "..");
 const manifestPath = path.join(root, "data", "photo-sets.json");
 const manifestJsPath = path.join(root, "data", "photo-sets.js");
+const questionnaireJsPath = path.join(root, "data", "pretest-questionnaire.js");
 
 function fail(message) {
   console.error(`ERROR: ${message}`);
@@ -15,19 +16,19 @@ if (!fs.existsSync(manifestJsPath)) {
   fail("data/photo-sets.js is missing. Local file launch depends on it.");
 }
 
-function readManifestFromJs(filePath) {
+function readWindowValueFromJs(filePath, propertyName) {
   try {
     const sandbox = { window: {} };
     vm.createContext(sandbox);
     vm.runInContext(fs.readFileSync(filePath, "utf8"), sandbox, { filename: filePath });
-    return sandbox.window.PHOTO_SET_MANIFEST;
+    return sandbox.window[propertyName];
   } catch (error) {
     fail(`Cannot read manifest ${path.relative(root, filePath)}: ${error.message}`);
     return null;
   }
 }
 
-const manifest = readManifestFromJs(manifestJsPath);
+const manifest = readWindowValueFromJs(manifestJsPath, "PHOTO_SET_MANIFEST");
 if (!manifest) process.exit(1);
 
 if (fs.existsSync(manifestPath)) {
@@ -94,4 +95,36 @@ if (process.exitCode) {
   process.exit(process.exitCode);
 }
 
-console.log(`Project check passed: ${setIds.size} sets, ${stimulusIds.size} stimuli.`);
+if (!fs.existsSync(questionnaireJsPath)) {
+  fail("data/pretest-questionnaire.js is missing.");
+}
+
+const questionnaire = readWindowValueFromJs(questionnaireJsPath, "PRETEST_QUESTIONNAIRE");
+if (!questionnaire) process.exit(1);
+
+const sections = questionnaire.sections || [];
+const questionIds = new Set();
+
+for (const section of sections) {
+  if (!section.id || !section.title) fail("Every questionnaire section must have id and title.");
+  if (!Array.isArray(section.options) || section.options.length === 0) {
+    fail(`Questionnaire section ${section.id || "(without id)"} must have options.`);
+  }
+  if (!Array.isArray(section.questions) || section.questions.length === 0) {
+    fail(`Questionnaire section ${section.id || "(without id)"} must have questions.`);
+    continue;
+  }
+
+  for (const question of section.questions) {
+    if (!question.id || !question.text) fail(`Question in section ${section.id} is missing id or text.`);
+    if (questionIds.has(question.id)) fail(`Duplicate questionnaire question id: ${question.id}`);
+    questionIds.add(question.id);
+  }
+}
+
+if (process.exitCode) {
+  console.error("Project check failed.");
+  process.exit(process.exitCode);
+}
+
+console.log(`Project check passed: ${setIds.size} sets, ${stimulusIds.size} stimuli, ${questionIds.size} questionnaire questions.`);

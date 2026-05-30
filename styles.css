@@ -71,6 +71,10 @@ button {
   width: min(620px, 100%);
 }
 
+.questionnaire-panel {
+  width: min(880px, 100%);
+}
+
 .eyebrow {
   margin: 0 0 8px;
   color: var(--accent-dark);
@@ -186,6 +190,89 @@ button:focus-visible {
   color: var(--text);
 }
 
+.survey-header,
+.survey-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.survey-counter {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.survey-description {
+  min-height: 3.2em;
+}
+
+.survey-form {
+  margin-top: 24px;
+}
+
+.survey-fieldset {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.survey-fieldset legend {
+  width: 100%;
+  min-height: 4.6em;
+  color: var(--text);
+  font-size: 1.18rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.survey-options {
+  display: grid;
+  gap: 9px;
+  margin-top: 18px;
+}
+
+.survey-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.survey-option:hover {
+  border-color: var(--accent);
+}
+
+.survey-option:has(input:checked) {
+  border-color: var(--accent);
+  background: #edf8f6;
+}
+
+.survey-option input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+}
+
+.survey-actions {
+  margin-top: 8px;
+}
+
+.survey-actions .primary-action,
+.survey-actions .secondary-action {
+  min-width: 130px;
+  margin-top: 0;
+}
+
 .stimulus-frame {
   width: 100%;
   height: 100%;
@@ -242,5 +329,13 @@ button:focus-visible {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .survey-header {
+    align-items: flex-start;
+  }
+
+  .survey-fieldset legend {
+    min-height: 0;
   }
 }

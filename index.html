@@ -29,8 +29,8 @@
 
           <form class="form-grid" id="participantForm">
             <label class="field">
-              <span>Имя</span>
-              <input type="text" name="name" autocomplete="name" required>
+              <span>ID испытуемого</span>
+              <input type="text" name="identifier" autocomplete="name" required>
             </label>
 
             <label class="field">
@@ -54,9 +54,39 @@
               <select name="photoSetId" id="photoSetSelect" required></select>
             </label>
 
+            <label class="field">
+              <span>Вуз и факультет, где учитесь, учились или поступаете</span>
+              <input type="text" name="institution" required>
+            </label>
+
             <p class="form-error" id="setupError" role="alert"></p>
 
             <button class="primary-action" type="submit">Продолжить</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="view hidden" id="surveyView" aria-labelledby="surveySectionTitle">
+        <div class="panel questionnaire-panel">
+          <div class="survey-header">
+            <div>
+              <p class="eyebrow" id="surveyProgress"></p>
+              <h2 id="surveySectionTitle"></h2>
+            </div>
+            <strong class="survey-counter" id="surveyCounter"></strong>
+          </div>
+          <p class="lede survey-description" id="surveyDescription"></p>
+
+          <form id="surveyForm" class="survey-form">
+            <fieldset class="survey-fieldset">
+              <legend id="surveyQuestion"></legend>
+              <div class="survey-options" id="surveyOptions"></div>
+            </fieldset>
+            <p class="form-error" id="surveyError" role="alert"></p>
+            <div class="survey-actions">
+              <button class="secondary-action" id="surveyBackButton" type="button">Назад</button>
+              <button class="primary-action" id="surveyNextButton" type="submit">Далее</button>
+            </div>
           </form>
         </div>
       </section>
@@ -107,6 +137,7 @@
 
     <script src="config.js"></script>
     <script src="data/photo-sets.js"></script>
+    <script src="data/pretest-questionnaire.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

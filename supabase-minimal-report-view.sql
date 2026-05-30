@@ -1,6 +1,8 @@
-create or replace view public.experiment_report_minimal as
+drop view if exists public.experiment_report_minimal;
+
+create view public.experiment_report_minimal as
 select
-  participant_id as participant_id,
+  participant_name as participant_identifier,
   concat(screen_width, 'x', screen_height) as screen_size,
   stimulus_id as stimulus_id,
   answer as answer,

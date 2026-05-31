@@ -3,7 +3,6 @@ const DEFAULT_CONFIG = {
   supabaseAnonKey: "",
   supabaseTable: "experiment_responses",
   stimulusDurationMs: 3000,
-  openQuestion: "Что именно вы запомнили о человеке?",
   requireDesktop: true,
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
@@ -14,7 +13,8 @@ const DEFAULT_CONFIG = {
 const config = { ...DEFAULT_CONFIG, ...(window.EXPERIMENT_CONFIG || {}) };
 const query = new URLSearchParams(window.location.search);
 const forcedSetId = query.get("set");
-const debugMode = query.get("debug") === "1" || config.showDebugDownload;
+const debugQueryMode = query.get("debug") === "1";
+const debugMode = debugQueryMode || config.showDebugDownload;
 
 const state = {
   photoSets: [],
@@ -28,7 +28,6 @@ const state = {
   questionnaireAnswers: {},
   phase: "setup",
   currentTrial: null,
-  currentRow: null,
   stimulusStartedAt: 0,
   stimulusStartedIso: "",
   stimulusTimerId: null,
@@ -42,7 +41,6 @@ const els = {
   surveyView: document.getElementById("surveyView"),
   readyView: document.getElementById("readyView"),
   experimentView: document.getElementById("experimentView"),
-  questionView: document.getElementById("questionView"),
   finishView: document.getElementById("finishView"),
   participantForm: document.getElementById("participantForm"),
   setField: document.getElementById("setField"),
@@ -64,10 +62,6 @@ const els = {
   beginButton: document.getElementById("beginButton"),
   stimulusImage: document.getElementById("stimulusImage"),
   numberStimulus: document.getElementById("numberStimulus"),
-  questionTitle: document.getElementById("questionTitle"),
-  questionPhotoId: document.getElementById("questionPhotoId"),
-  memoryForm: document.getElementById("memoryForm"),
-  memoryText: document.getElementById("memoryText"),
   finishSummary: document.getElementById("finishSummary"),
   saveStatus: document.getElementById("saveStatus"),
   downloadCsvButton: document.getElementById("downloadCsvButton")
@@ -102,7 +96,6 @@ function bindEvents() {
   els.surveyForm.addEventListener("submit", handleSurveySubmit);
   els.surveyBackButton.addEventListener("click", handleSurveyBack);
   els.beginButton.addEventListener("click", beginExperiment);
-  els.memoryForm.addEventListener("submit", handleMemorySubmit);
   els.downloadCsvButton.addEventListener("click", downloadCsv);
 
   window.addEventListener("keydown", (event) => {
@@ -366,7 +359,6 @@ function showNextTrial() {
 
   const trial = state.trials[state.trialIndex];
   state.currentTrial = trial;
-  state.currentRow = null;
   state.phase = "stimulus";
 
   renderStimulus(trial);
@@ -383,7 +375,7 @@ function showNextTrial() {
 function handleRecognition(answer) {
   if (!["stimulus", "waiting_response"].includes(state.phase)) return;
 
-  state.phase = answer === "Y" ? "question" : "between";
+  state.phase = "between";
   const reactionTimeMs = Math.round(performance.now() - state.stimulusStartedAt);
   clearStimulusTimers();
   clearStimulusDisplay();
@@ -391,19 +383,8 @@ function handleRecognition(answer) {
   const row = buildRow({
     answer,
     recognized: answer === "Y",
-    memoryText: "",
     reactionTimeMs
   });
-
-  if (answer === "Y") {
-    state.currentRow = row;
-    els.questionTitle.textContent = config.openQuestion;
-    els.questionPhotoId.textContent = `Стимул: ${state.currentTrial.id}`;
-    els.memoryText.value = "";
-    showView("question");
-    requestAnimationFrame(() => els.memoryText.focus());
-    return;
-  }
 
   state.rows.push(row);
   showNextTrial();
@@ -417,18 +398,7 @@ function hideStimulusAndWait() {
   clearStimulusDisplay();
 }
 
-function handleMemorySubmit(event) {
-  event.preventDefault();
-
-  if (!state.currentRow) return;
-
-  state.currentRow.memory_text = els.memoryText.value.trim();
-  state.rows.push(state.currentRow);
-  state.currentRow = null;
-  showNextTrial();
-}
-
-function buildRow({ answer, recognized, memoryText, reactionTimeMs }) {
+function buildRow({ answer, recognized, reactionTimeMs }) {
   const trial = state.currentTrial;
   const participant = state.participant;
 
@@ -450,7 +420,6 @@ function buildRow({ answer, recognized, memoryText, reactionTimeMs }) {
     stimulus_value: trial.value === undefined ? "" : String(trial.value),
     answer,
     recognized,
-    memory_text: memoryText,
     reaction_time_ms: reactionTimeMs,
     shown_at: state.stimulusStartedIso,
     user_agent: navigator.userAgent
@@ -484,7 +453,7 @@ async function saveSessionToSupabase() {
     };
   }
 
-  const endpoint = `${config.supabaseUrl.replace(/\/$/, "")}/rest/v1/experiment_sessions?on_conflict=session_id`;
+  const endpoint = `${config.supabaseUrl.replace(/\/$/, "")}/rest/v1/experiment_sessions`;
   const participant = state.participant;
   const row = {
     session_id: state.sessionId,
@@ -506,7 +475,7 @@ async function saveSessionToSupabase() {
   try {
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: buildSupabaseHeaders("resolution=ignore-duplicates,return=minimal"),
+      headers: buildSupabaseHeaders(),
       body: JSON.stringify(row)
     });
 
@@ -608,7 +577,6 @@ function downloadCsv() {
     "stimulus_value",
     "answer",
     "recognized",
-    "memory_text",
     "reaction_time_ms",
     "shown_at",
     "user_agent"
@@ -640,7 +608,6 @@ function showView(viewName) {
     survey: els.surveyView,
     ready: els.readyView,
     experiment: els.experimentView,
-    question: els.questionView,
     finish: els.finishView
   };
 
@@ -706,7 +673,7 @@ function getDeviceCheck() {
     };
   }
 
-  if (width < config.minimumViewportWidth || height < config.minimumViewportHeight) {
+  if (!debugQueryMode && (width < config.minimumViewportWidth || height < config.minimumViewportHeight)) {
     return {
       ok: false,
       message: `Увеличьте окно браузера минимум до ${config.minimumViewportWidth}x${config.minimumViewportHeight}. Сейчас: ${width}x${height}.`

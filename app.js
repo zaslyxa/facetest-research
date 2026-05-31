@@ -346,7 +346,12 @@ async function beginExperiment() {
   els.loadStatus.textContent = "Подготавливаем стимулы...";
 
   try {
-    await preloadImages(state.trials.filter((trial) => trial.type === "image").map((trial) => trial.src));
+    await preloadImages(
+      state.trials.filter((trial) => trial.type === "image").map((trial) => trial.src),
+      (loaded, total) => {
+        els.loadStatus.textContent = `Подготавливаем стимулы: ${loaded} из ${total}...`;
+      }
+    );
   } catch (error) {
     els.loadStatus.textContent = error.message;
     els.beginButton.disabled = false;
@@ -358,15 +363,48 @@ async function beginExperiment() {
   showNextTrial();
 }
 
-function preloadImages(srcList) {
-  return Promise.all(
-    srcList.map((src) => new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = resolve;
-      image.onerror = () => reject(new Error(`Не удалось загрузить изображение: ${src}`));
-      image.src = src;
-    }))
-  );
+async function preloadImages(srcList, onProgress) {
+  const queue = [...srcList];
+  const total = queue.length;
+  let loaded = 0;
+
+  onProgress?.(loaded, total);
+
+  async function worker() {
+    while (queue.length > 0) {
+      const src = queue.shift();
+      await loadImageWithRetry(src);
+      loaded += 1;
+      onProgress?.(loaded, total);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(6, total) }, worker));
+}
+
+async function loadImageWithRetry(src, attempts = 3) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await loadImage(src);
+      return;
+    } catch (error) {
+      if (attempt === attempts) throw error;
+      await wait(500 * attempt);
+    }
+  }
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = resolve;
+    image.onerror = () => reject(new Error(`Не удалось загрузить изображение: ${src}`));
+    image.src = src;
+  });
+}
+
+function wait(durationMs) {
+  return new Promise((resolve) => window.setTimeout(resolve, durationMs));
 }
 
 function showNextTrial() {

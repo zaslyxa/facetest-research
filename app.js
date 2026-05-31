@@ -548,6 +548,10 @@ async function saveSessionToSupabase() {
 
     if (!response.ok) {
       const message = await response.text();
+      if (isDuplicateSessionError(message)) {
+        return { ok: true };
+      }
+
       return {
         ok: false,
         message: `Не удалось сохранить опросник в Supabase: ${message || response.status}.`
@@ -560,6 +564,15 @@ async function saveSessionToSupabase() {
       ok: false,
       message: `Нет соединения с базой. Попробуйте ещё раз: ${error.message}`
     };
+  }
+}
+
+function isDuplicateSessionError(message) {
+  try {
+    const error = JSON.parse(message);
+    return error.code === "23505" && error.message?.includes("experiment_sessions_pkey");
+  } catch {
+    return false;
   }
 }
 

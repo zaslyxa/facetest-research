@@ -538,7 +538,9 @@ async function finishExperiment() {
   }
 
   queueFailedSubmission(state.rows);
-  els.saveStatus.textContent = result.message;
+  els.downloadCsvButton.classList.remove("hidden");
+  els.saveStatus.textContent = `${result.message} Нажмите «Скачать CSV» и отправьте файл исследователю.`;
+  downloadCsv();
 }
 
 async function saveSessionToSupabase() {

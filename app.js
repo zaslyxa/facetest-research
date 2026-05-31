@@ -60,6 +60,7 @@ const els = {
   durationLabel: document.getElementById("durationLabel"),
   loadStatus: document.getElementById("loadStatus"),
   beginButton: document.getElementById("beginButton"),
+  responseHint: document.getElementById("responseHint"),
   stimulusImage: document.getElementById("stimulusImage"),
   numberStimulus: document.getElementById("numberStimulus"),
   finishSummary: document.getElementById("finishSummary"),
@@ -626,12 +627,14 @@ function getSetStimuli(set) {
 
 function renderStimulus(trial) {
   if (trial.type === "image") {
+    els.responseHint.classList.remove("hidden");
     els.numberStimulus.classList.add("hidden");
     els.stimulusImage.classList.remove("hidden");
     els.stimulusImage.src = trial.src;
     return;
   }
 
+  els.responseHint.classList.add("hidden");
   els.stimulusImage.classList.add("hidden");
   els.stimulusImage.removeAttribute("src");
   els.numberStimulus.classList.remove("hidden");
@@ -639,6 +642,7 @@ function renderStimulus(trial) {
 }
 
 function clearStimulusDisplay() {
+  els.responseHint.classList.add("hidden");
   els.stimulusImage.classList.add("hidden");
   els.stimulusImage.removeAttribute("src");
   els.numberStimulus.classList.add("hidden");

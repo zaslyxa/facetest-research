@@ -49,8 +49,9 @@ button {
 .view--experiment {
   background: #ffffff;
   align-content: stretch;
-  grid-template-rows: minmax(0, 1fr);
-  padding: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 20px 16px;
 }
 
 .hidden {
@@ -344,6 +345,14 @@ button:focus-visible {
   container-type: size;
 }
 
+.response-hint {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 .stimulus-frame img,
 .number-stimulus {
   min-height: 0;
@@ -354,10 +363,8 @@ button:focus-visible {
 }
 
 .stimulus-frame img {
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
+  width: min(500px, 100%);
+  height: min(600px, 100%);
   object-fit: contain;
 }
 

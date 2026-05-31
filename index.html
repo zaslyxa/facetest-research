@@ -81,6 +81,7 @@
             <p class="form-error" id="surveyError" role="alert"></p>
             <div class="survey-actions">
               <button class="secondary-action" id="surveyBackButton" type="button">Назад</button>
+              <button class="secondary-action hidden" type="button" data-reset-progress>Начать заново</button>
               <button class="primary-action" id="surveyNextButton" type="submit">Далее</button>
             </div>
           </form>
@@ -105,6 +106,7 @@
           </p>
           <p class="muted" id="loadStatus">Стимулы будут подготовлены перед стартом.</p>
           <button class="primary-action" id="beginButton" type="button">Начать демонстрацию</button>
+          <button class="secondary-action hidden" type="button" data-reset-progress>Начать заново</button>
         </div>
       </section>
 
@@ -136,6 +138,6 @@
     <script src="config.js"></script>
     <script src="data/photo-sets.js"></script>
     <script src="data/pretest-questionnaire.js"></script>
-    <script src="app.js?v=20260531-6"></script>
+    <script src="app.js?v=20260531-7"></script>
   </body>
 </html>

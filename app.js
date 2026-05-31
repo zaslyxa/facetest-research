@@ -16,6 +16,8 @@ const query = new URLSearchParams(window.location.search);
 const forcedSetId = query.get("set");
 const debugQueryMode = query.get("debug") === "1";
 const debugMode = debugQueryMode || config.showDebugDownload;
+const ACTIVE_PROGRESS_KEY = "facetest_active_progress_v1";
+const SETUP_DRAFT_KEY = "facetest_setup_draft_v1";
 
 const state = {
   photoSets: [],
@@ -88,6 +90,8 @@ async function init() {
     state.photoSets = manifest.sets || [];
     validateManifest(state.photoSets);
     renderSetOptions(manifest.defaultSetId);
+    restoreSetupDraft();
+    restoreProgress();
   } catch (error) {
     els.setupError.textContent = error.message;
     els.participantForm.querySelector("button").disabled = true;
@@ -96,10 +100,25 @@ async function init() {
 
 function bindEvents() {
   els.participantForm.addEventListener("submit", handleParticipantSubmit);
+  els.participantForm.addEventListener("input", saveSetupDraft);
+  els.participantForm.addEventListener("change", saveSetupDraft);
   els.surveyForm.addEventListener("submit", handleSurveySubmit);
+  els.surveyForm.addEventListener("change", () => {
+    if (state.phase !== "survey") return;
+    rememberSurveyAnswers(state.surveySections[state.surveyIndex], new FormData(els.surveyForm));
+    saveProgress();
+  });
   els.surveyBackButton.addEventListener("click", handleSurveyBack);
   els.beginButton.addEventListener("click", beginExperiment);
   els.downloadCsvButton.addEventListener("click", downloadCsv);
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-reset-progress]");
+    if (!button) return;
+    if (!window.confirm("Начать тест заново? Сохраненный прогресс этой попытки будет удален.")) return;
+    clearProgress();
+    clearSetupDraft();
+    window.location.reload();
+  });
   els.touchResponseControls.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-answer]");
     if (!button) return;
@@ -229,6 +248,8 @@ function handleParticipantSubmit(event) {
   state.surveyIndex = 0;
   state.questionnaireAnswers = {};
   state.phase = "survey";
+  clearSetupDraft();
+  saveProgress();
   renderSurveySection();
   showView("survey");
 }
@@ -251,6 +272,7 @@ async function handleSurveySubmit(event) {
 
   if (state.surveyIndex < state.surveySections.length - 1) {
     state.surveyIndex += 1;
+    saveProgress();
     renderSurveySection();
     window.scrollTo({ top: 0 });
     return;
@@ -259,6 +281,7 @@ async function handleSurveySubmit(event) {
   els.surveyNextButton.disabled = true;
   els.surveyBackButton.disabled = true;
   els.surveyError.textContent = "Сохраняем ответы...";
+  saveProgress();
 
   const result = await saveSessionToSupabase();
   if (!result.ok) {
@@ -270,6 +293,7 @@ async function handleSurveySubmit(event) {
 
   els.readyGroup.textContent = state.selectedSet.label;
   state.phase = "ready";
+  saveProgress();
   showView("ready");
 }
 
@@ -278,6 +302,7 @@ function handleSurveyBack() {
 
   rememberSurveyAnswers(state.surveySections[state.surveyIndex], new FormData(els.surveyForm));
   state.surveyIndex -= 1;
+  saveProgress();
   els.surveyError.textContent = "";
   renderSurveySection();
   window.scrollTo({ top: 0 });
@@ -355,7 +380,7 @@ async function beginExperiment() {
 
   try {
     await preloadImages(
-      state.trials.filter((trial) => trial.type === "image").map((trial) => trial.src),
+      state.trials.slice(state.rows.length).filter((trial) => trial.type === "image").map((trial) => trial.src),
       (loaded, total) => {
         els.loadStatus.textContent = `Подготавливаем стимулы: ${loaded} из ${total}...`;
       }
@@ -367,7 +392,7 @@ async function beginExperiment() {
   }
 
   els.loadStatus.textContent = "Стимулы готовы.";
-  state.trialIndex = -1;
+  state.trialIndex = state.rows.length - 1;
   showNextTrial();
 }
 
@@ -454,6 +479,7 @@ function handleRecognition(answer) {
   });
 
   state.rows.push(row);
+  saveProgress();
   showNextTrial();
 }
 
@@ -496,6 +522,7 @@ function buildRow({ answer, recognized, reactionTimeMs }) {
 async function finishExperiment() {
   clearStimulusTimers();
   state.phase = "finish";
+  saveProgress();
   els.finishSummary.textContent = `Записано ответов: ${state.rows.length}. ID сессии: ${state.sessionId}.`;
   els.saveStatus.textContent = "Сохраняем результаты...";
   els.downloadCsvButton.classList.toggle("hidden", !debugMode);
@@ -504,6 +531,7 @@ async function finishExperiment() {
   const result = await saveToSupabase(state.rows);
   if (result.ok) {
     els.saveStatus.textContent = "Результаты сохранены.";
+    clearProgress();
     return;
   }
 
@@ -622,6 +650,132 @@ function buildSupabaseHeaders(prefer = "return=minimal") {
   }
 
   return headers;
+}
+
+function saveProgress() {
+  if (!state.participant || !state.selectedSet || state.trials.length === 0) return;
+
+  try {
+    localStorage.setItem(ACTIVE_PROGRESS_KEY, JSON.stringify({
+      savedAt: new Date().toISOString(),
+      sessionId: state.sessionId,
+      participant: state.participant,
+      selectedSetId: state.selectedSet.id,
+      trials: state.trials,
+      rows: state.rows,
+      surveyIndex: state.surveyIndex,
+      questionnaireAnswers: state.questionnaireAnswers,
+      phase: state.phase
+    }));
+  } catch {
+    // Local storage can be disabled in private browsing modes.
+  }
+}
+
+function saveSetupDraft() {
+  try {
+    localStorage.setItem(SETUP_DRAFT_KEY, JSON.stringify(
+      Object.fromEntries(new FormData(els.participantForm))
+    ));
+  } catch {
+    // Local storage can be disabled in private browsing modes.
+  }
+}
+
+function restoreSetupDraft() {
+  let draft;
+  try {
+    draft = JSON.parse(localStorage.getItem(SETUP_DRAFT_KEY) || "null");
+  } catch {
+    clearSetupDraft();
+    return;
+  }
+
+  if (!draft) return;
+
+  Object.entries(draft).forEach(([name, value]) => {
+    const field = els.participantForm.elements.namedItem(name);
+    if (!field) return;
+    if (field.options && ![...field.options].some((option) => option.value === value)) return;
+    field.value = value;
+  });
+}
+
+function clearSetupDraft() {
+  try {
+    localStorage.removeItem(SETUP_DRAFT_KEY);
+  } catch {
+    // Local storage can be disabled in private browsing modes.
+  }
+}
+
+function restoreProgress() {
+  let progress;
+  try {
+    progress = JSON.parse(localStorage.getItem(ACTIVE_PROGRESS_KEY) || "null");
+  } catch {
+    clearProgress();
+    return false;
+  }
+
+  if (!progress) return false;
+
+  const selectedSet = state.photoSets.find((set) => set.id === progress.selectedSetId);
+  const hasValidTrials = Array.isArray(progress.trials) && progress.trials.length > 0;
+  const hasValidParticipant = progress.participant?.id && progress.participant?.identifier;
+  if (!selectedSet || !hasValidTrials || !hasValidParticipant) {
+    clearProgress();
+    return false;
+  }
+
+  if (forcedSetId && forcedSetId !== selectedSet.id) return false;
+
+  state.sessionId = progress.sessionId || createId();
+  state.participant = progress.participant;
+  state.selectedSet = selectedSet;
+  state.trials = progress.trials;
+  state.rows = Array.isArray(progress.rows) ? progress.rows : [];
+  state.surveySections = getSurveySections();
+  state.surveyIndex = Math.max(0, Math.min(Number(progress.surveyIndex) || 0, state.surveySections.length - 1));
+  state.questionnaireAnswers = progress.questionnaireAnswers || {};
+
+  showResetProgressButtons();
+
+  if (progress.phase === "survey") {
+    state.phase = "survey";
+    renderSurveySection();
+    showView("survey");
+    return true;
+  }
+
+  if (progress.phase === "finish" || state.rows.length >= state.trials.length) {
+    finishExperiment();
+    return true;
+  }
+
+  state.phase = "ready";
+  els.readyGroup.textContent = state.selectedSet.label;
+  els.beginButton.textContent = state.rows.length > 0 ? "Продолжить демонстрацию" : "Начать демонстрацию";
+  els.loadStatus.textContent = state.rows.length > 0
+    ? `Прогресс восстановлен: отвечено ${state.rows.length} из ${state.trials.length}.`
+    : "Стимулы будут подготовлены перед стартом.";
+  saveProgress();
+  showView("ready");
+  return true;
+}
+
+function clearProgress() {
+  try {
+    localStorage.removeItem(ACTIVE_PROGRESS_KEY);
+  } catch {
+    // Local storage can be disabled in private browsing modes.
+  }
+}
+
+function showResetProgressButtons() {
+  document.querySelectorAll("[data-reset-progress]").forEach((button) => {
+    button.classList.remove("hidden");
+  });
 }
 
 function queueFailedSubmission(rows) {

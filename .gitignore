@@ -2,4 +2,5 @@
 Thumbs.db
 *.log
 server.err
+.env.local
 /фото/

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Исследование узнавания лиц</title>
+    <title>Анкета участника</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -18,10 +18,9 @@
         </div>
       </section>
 
-      <section class="view view--setup" id="setupView" aria-labelledby="setupTitle">
+      <section class="view view--setup" id="setupView" aria-label="Анкета участника">
         <div class="panel">
           <p class="eyebrow">Психологическое исследование</p>
-          <h1 id="setupTitle">Исследование узнавания лиц</h1>
           <p class="lede">
             Заполните короткую анкету перед началом. После старта стимулы будут
             показываться по одному.
@@ -29,7 +28,7 @@
 
           <form class="form-grid" id="participantForm">
             <label class="field">
-              <span>ID испытуемого</span>
+              <span>ID (фамилия и имя для студентов-психологов / ник телеграм для всех остальных)</span>
               <input type="text" name="identifier" autocomplete="name" required>
             </label>
 

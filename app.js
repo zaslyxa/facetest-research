@@ -199,7 +199,7 @@ function handleParticipantSubmit(event) {
   const identifier = String(formData.get("identifier")).trim();
   const institution = String(formData.get("institution")).trim();
   if (!identifier || !institution) {
-    els.setupError.textContent = "Заполните ID испытуемого и вуз/факультет.";
+    els.setupError.textContent = "Заполните ID и вуз/факультет.";
     return;
   }
 

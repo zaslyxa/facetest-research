@@ -72,7 +72,7 @@ button {
 
 .questionnaire-panel {
   width: min(1040px, 100%);
-  padding: clamp(20px, 3vw, 34px);
+  padding: clamp(18px, 2.5vw, 30px);
 }
 
 .eyebrow {
@@ -223,9 +223,9 @@ button:focus-visible {
 
 .survey-options {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   width: min(620px, 100%);
-  margin-top: 12px;
+  margin-top: 10px;
   margin-inline: auto;
 }
 
@@ -233,14 +233,14 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 9px;
-  min-height: 42px;
+  min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   color: var(--text);
   cursor: pointer;
-  font-size: 0.92rem;
-  line-height: 1.3;
+  font-size: 0.9rem;
+  line-height: 1.25;
 }
 
 .survey-option:hover {
@@ -268,6 +268,71 @@ button:focus-visible {
 .survey-actions .secondary-action {
   min-width: 130px;
   margin-top: 0;
+}
+
+@media (max-height: 820px) {
+  #surveyView {
+    padding-block: 12px;
+  }
+
+  .questionnaire-panel {
+    padding: 16px 20px;
+  }
+
+  .questionnaire-panel .eyebrow {
+    margin-bottom: 4px;
+  }
+
+  .questionnaire-panel h2 {
+    font-size: 1.5rem;
+  }
+
+  .survey-description {
+    margin-top: 6px;
+    font-size: 0.9rem;
+    line-height: 1.25;
+  }
+
+  .survey-form {
+    margin-top: 10px;
+  }
+
+  .survey-fieldset legend {
+    font-size: 0.98rem;
+    line-height: 1.25;
+  }
+
+  .survey-options {
+    gap: 4px;
+    margin-top: 8px;
+  }
+
+  .survey-option {
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 0.86rem;
+    line-height: 1.2;
+  }
+
+  .survey-option input {
+    width: 16px;
+    height: 16px;
+  }
+
+  .survey-form .form-error {
+    min-height: 1em;
+    font-size: 0.9rem;
+  }
+
+  .survey-actions {
+    margin-top: 6px;
+  }
+
+  .survey-actions .primary-action,
+  .survey-actions .secondary-action {
+    min-height: 40px;
+    padding-block: 9px;
+  }
 }
 
 .stimulus-frame {

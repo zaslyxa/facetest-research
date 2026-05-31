@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Анкета участника</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=20260531-2">
   </head>
   <body>
     <main class="shell" id="app">
@@ -92,8 +92,15 @@
           <p class="eyebrow" id="readyGroup"></p>
           <h2 id="readyTitle">Готово к началу</h2>
           <p class="lede">
-            Каждый стимул будет показан на <span id="durationLabel">3 секунды</span>, затем экран станет пустым.
-            После этого нажмите Y, если узнали человека, или N, если не узнали.
+            Далее вам будут предъявляться фотографии людей. Некоторых из них вы увидите впервые, других вы видели на конференции - они изображали эмоции.
+          </p>
+          <p class="lede">
+            Если Вы видели человека на фото, нажимайте клавишу "Y", если нет - клавишу "N".
+            Каждая фотография предъявляется максимум на <span id="durationLabel">3 секунды</span> или до момента ответа.
+          </p>
+          <p class="lede">
+            Пожалуйста, постарайтесь долго не задумываться - отвечать надо максимально точно и быстро!
+            Желательно заранее найти две нужные клавиши, раскладку менять не надо.
           </p>
           <p class="muted" id="loadStatus">Стимулы будут подготовлены перед стартом.</p>
           <button class="primary-action" id="beginButton" type="button">Начать демонстрацию</button>
@@ -124,6 +131,6 @@
     <script src="config.js"></script>
     <script src="data/photo-sets.js"></script>
     <script src="data/pretest-questionnaire.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=20260531-2"></script>
   </body>
 </html>

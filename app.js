@@ -3,7 +3,7 @@ const DEFAULT_CONFIG = {
   supabaseAnonKey: "",
   supabaseTable: "experiment_responses",
   stimulusDurationMs: 3000,
-  requireDesktop: true,
+  requireMinimumViewport: true,
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
   preloadConcurrency: 3,
@@ -61,6 +61,7 @@ const els = {
   loadStatus: document.getElementById("loadStatus"),
   beginButton: document.getElementById("beginButton"),
   responseHint: document.getElementById("responseHint"),
+  touchResponseControls: document.getElementById("touchResponseControls"),
   stimulusImage: document.getElementById("stimulusImage"),
   numberStimulus: document.getElementById("numberStimulus"),
   finishSummary: document.getElementById("finishSummary"),
@@ -73,6 +74,7 @@ init();
 async function init() {
   bindEvents();
   els.durationLabel.textContent = formatDuration(config.stimulusDurationMs);
+  els.touchResponseControls.classList.toggle("hidden", !hasTouchInput());
 
   const deviceCheck = getDeviceCheck();
   if (!deviceCheck.ok) {
@@ -98,6 +100,11 @@ function bindEvents() {
   els.surveyBackButton.addEventListener("click", handleSurveyBack);
   els.beginButton.addEventListener("click", beginExperiment);
   els.downloadCsvButton.addEventListener("click", downloadCsv);
+  els.touchResponseControls.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-answer]");
+    if (!button) return;
+    handleRecognition(button.dataset.answer);
+  });
 
   window.addEventListener("keydown", (event) => {
     if (!["stimulus", "waiting_response"].includes(state.phase) || event.repeat) return;
@@ -719,22 +726,10 @@ function getKeyboardAnswer(event) {
 }
 
 function getDeviceCheck() {
-  if (!config.requireDesktop) return { ok: true };
+  if (!config.requireMinimumViewport) return { ok: true };
 
   const width = window.innerWidth;
   const height = window.innerHeight;
-  const ua = navigator.userAgent || "";
-  const uaDataMobile = Boolean(navigator.userAgentData?.mobile);
-  const mobileOrTabletUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(ua);
-  const iPadDesktopUa = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
-  const coarseTouch = window.matchMedia("(pointer: coarse)").matches && navigator.maxTouchPoints > 0;
-
-  if (uaDataMobile || mobileOrTabletUa || iPadDesktopUa || coarseTouch) {
-    return {
-      ok: false,
-      message: "Откройте ссылку на ноутбуке или настольном компьютере. Телефоны и планшеты для этого исследования не допускаются."
-    };
-  }
 
   if (!debugQueryMode && (width < config.minimumViewportWidth || height < config.minimumViewportHeight)) {
     return {
@@ -744,6 +739,10 @@ function getDeviceCheck() {
   }
 
   return { ok: true };
+}
+
+function hasTouchInput() {
+  return navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse)").matches;
 }
 
 function shuffle(items) {

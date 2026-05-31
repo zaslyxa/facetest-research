@@ -4,16 +4,16 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Анкета участника</title>
-    <link rel="stylesheet" href="styles.css?v=20260531-2">
+    <link rel="stylesheet" href="styles.css?v=20260531-3">
   </head>
   <body>
     <main class="shell" id="app">
       <section class="view hidden" id="unsupportedView" aria-labelledby="unsupportedTitle">
         <div class="panel panel--narrow">
           <p class="eyebrow">Ограничение устройства</p>
-          <h1 id="unsupportedTitle">Тест доступен только с компьютера</h1>
+          <h1 id="unsupportedTitle">Нужно увеличить окно браузера</h1>
           <p class="lede" id="unsupportedMessage">
-            Откройте ссылку на ноутбуке или настольном компьютере.
+            Поверните устройство горизонтально или откройте ссылку на устройстве с экраном побольше.
           </p>
         </div>
       </section>
@@ -96,6 +96,7 @@
           </p>
           <p class="lede">
             Если Вы видели человека на фото, нажимайте клавишу "Y", если нет - клавишу "N".
+            На планшете используйте кнопки на экране.
             Каждая фотография предъявляется максимум на <span id="durationLabel">3 секунды</span> или до момента ответа.
           </p>
           <p class="lede">
@@ -113,6 +114,10 @@
           <img class="hidden" id="stimulusImage" alt="Стимул исследования">
           <div class="number-stimulus hidden" id="numberStimulus" aria-label="Числовой стимул"></div>
         </figure>
+        <div class="touch-response-controls hidden" id="touchResponseControls" aria-label="Кнопки ответа">
+          <button class="touch-response touch-response--yes" type="button" data-answer="Y">Да, видел(а)</button>
+          <button class="touch-response touch-response--no" type="button" data-answer="N">Нет, не видел(а)</button>
+        </div>
       </section>
 
       <section class="view hidden" id="finishView" aria-labelledby="finishTitle">
@@ -131,6 +136,6 @@
     <script src="config.js"></script>
     <script src="data/photo-sets.js"></script>
     <script src="data/pretest-questionnaire.js"></script>
-    <script src="app.js?v=20260531-4"></script>
+    <script src="app.js?v=20260531-5"></script>
   </body>
 </html>

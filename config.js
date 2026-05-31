@@ -3,7 +3,7 @@ window.EXPERIMENT_CONFIG = {
   supabaseAnonKey: "sb_publishable_8gEQVN6t6-BFH7zImFOxLQ_VmO2YsuG",
   supabaseTable: "experiment_responses",
   stimulusDurationMs: 3000,
-  requireDesktop: true,
+  requireMinimumViewport: true,
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
   preloadConcurrency: 3,

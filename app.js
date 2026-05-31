@@ -6,6 +6,7 @@ const DEFAULT_CONFIG = {
   requireDesktop: true,
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
+  preloadConcurrency: 3,
   allowSetChoiceWhenMissingUrl: true,
   showDebugDownload: false
 };
@@ -379,7 +380,8 @@ async function preloadImages(srcList, onProgress) {
     }
   }
 
-  await Promise.all(Array.from({ length: Math.min(6, total) }, worker));
+  const concurrency = Math.max(1, Math.min(config.preloadConcurrency, total));
+  await Promise.all(Array.from({ length: concurrency }, worker));
 }
 
 async function loadImageWithRetry(src, attempts = 3) {
@@ -389,7 +391,7 @@ async function loadImageWithRetry(src, attempts = 3) {
       return;
     } catch (error) {
       if (attempt === attempts) throw error;
-      await wait(500 * attempt);
+      await wait(500 * attempt + Math.random() * 500);
     }
   }
 }

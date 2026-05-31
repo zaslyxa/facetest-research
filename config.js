@@ -6,6 +6,7 @@ window.EXPERIMENT_CONFIG = {
   requireDesktop: true,
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
+  preloadConcurrency: 3,
   allowSetChoiceWhenMissingUrl: true,
   showDebugDownload: false
 };

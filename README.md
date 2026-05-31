@@ -77,6 +77,7 @@ window.EXPERIMENT_CONFIG = {
   requireDesktop: true,
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
+  preloadConcurrency: 3,
   allowSetChoiceWhenMissingUrl: true,
   showDebugDownload: false
 };
@@ -168,5 +169,6 @@ git push -u origin main
 ## Что можно легко изменить
 
 - Длительность показа: `stimulusDurationMs` в `config.js`.
+- Число одновременно загружаемых фотографий: `preloadConcurrency` в `config.js`.
 - Список групп и стимулов: `data/photo-sets.js`.
 - Скачивание CSV на финальном экране: `showDebugDownload` в `config.js`.

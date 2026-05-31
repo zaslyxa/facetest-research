@@ -78,6 +78,8 @@ window.EXPERIMENT_CONFIG = {
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
   preloadConcurrency: 3,
+  supabaseRequestAttempts: 8,
+  supabaseRequestTimeoutMs: 15000,
   allowSetChoiceWhenMissingUrl: true,
   showDebugDownload: false
 };
@@ -174,5 +176,6 @@ git push -u origin main
 
 - Длительность показа: `stimulusDurationMs` в `config.js`.
 - Число одновременно загружаемых фотографий: `preloadConcurrency` в `config.js`.
+- Число попыток записи в Supabase: `supabaseRequestAttempts` в `config.js`.
 - Список групп и стимулов: `data/photo-sets.js`.
 - Скачивание CSV на финальном экране: `showDebugDownload` в `config.js`.

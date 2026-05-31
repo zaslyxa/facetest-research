@@ -7,6 +7,8 @@ const DEFAULT_CONFIG = {
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
   preloadConcurrency: 3,
+  supabaseRequestAttempts: 8,
+  supabaseRequestTimeoutMs: 15000,
   allowSetChoiceWhenMissingUrl: true,
   showDebugDownload: false
 };
@@ -18,8 +20,6 @@ const debugQueryMode = query.get("debug") === "1";
 const debugMode = debugQueryMode || config.showDebugDownload;
 const ACTIVE_PROGRESS_KEY = "facetest_active_progress_v1";
 const SETUP_DRAFT_KEY = "facetest_setup_draft_v1";
-const SUPABASE_REQUEST_ATTEMPTS = 3;
-const SUPABASE_REQUEST_TIMEOUT_MS = 20000;
 
 const state = {
   photoSets: [],
@@ -664,13 +664,13 @@ function buildSupabaseHeaders(prefer = "return=minimal") {
 async function fetchWithRetry(endpoint, options, onRetry) {
   let lastError;
 
-  for (let attempt = 1; attempt <= SUPABASE_REQUEST_ATTEMPTS; attempt += 1) {
+  for (let attempt = 1; attempt <= config.supabaseRequestAttempts; attempt += 1) {
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), SUPABASE_REQUEST_TIMEOUT_MS);
+    const timeoutId = window.setTimeout(() => controller.abort(), config.supabaseRequestTimeoutMs);
 
     try {
       const response = await fetch(endpoint, { ...options, signal: controller.signal });
-      if (response.ok || attempt === SUPABASE_REQUEST_ATTEMPTS || (response.status < 500 && response.status !== 429)) {
+      if (response.ok || attempt === config.supabaseRequestAttempts || (response.status < 500 && response.status !== 429)) {
         return response;
       }
 
@@ -681,8 +681,8 @@ async function fetchWithRetry(endpoint, options, onRetry) {
       window.clearTimeout(timeoutId);
     }
 
-    onRetry?.(attempt + 1, SUPABASE_REQUEST_ATTEMPTS);
-    await wait(1000 * attempt);
+    onRetry?.(attempt + 1, config.supabaseRequestAttempts);
+    await wait(Math.min(1000 * attempt, 5000));
   }
 
   throw lastError;

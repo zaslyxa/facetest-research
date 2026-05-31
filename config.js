@@ -7,6 +7,8 @@ window.EXPERIMENT_CONFIG = {
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
   preloadConcurrency: 3,
+  supabaseRequestAttempts: 8,
+  supabaseRequestTimeoutMs: 15000,
   allowSetChoiceWhenMissingUrl: true,
   showDebugDownload: false
 };

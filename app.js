@@ -18,6 +18,8 @@ const debugQueryMode = query.get("debug") === "1";
 const debugMode = debugQueryMode || config.showDebugDownload;
 const ACTIVE_PROGRESS_KEY = "facetest_active_progress_v1";
 const SETUP_DRAFT_KEY = "facetest_setup_draft_v1";
+const SUPABASE_REQUEST_ATTEMPTS = 3;
+const SUPABASE_REQUEST_TIMEOUT_MS = 20000;
 
 const state = {
   photoSets: [],
@@ -568,10 +570,12 @@ async function saveSessionToSupabase() {
   };
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetchWithRetry(endpoint, {
       method: "POST",
       headers: buildSupabaseHeaders(),
       body: JSON.stringify(row)
+    }, (attempt, total) => {
+      els.surveyError.textContent = `Нет соединения с базой. Повторная попытка ${attempt} из ${total}...`;
     });
 
     if (!response.ok) {
@@ -615,10 +619,13 @@ async function saveToSupabase(rows) {
 
   const endpoint = `${config.supabaseUrl.replace(/\/$/, "")}/rest/v1/${config.supabaseTable}`;
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetchWithRetry(endpoint, {
       method: "POST",
       headers: buildSupabaseHeaders(),
-      body: JSON.stringify(rows)
+      body: JSON.stringify(rows),
+      keepalive: true
+    }, (attempt, total) => {
+      els.saveStatus.textContent = `Нет соединения с базой. Повторная попытка ${attempt} из ${total}...`;
     });
 
     if (!response.ok) {
@@ -650,6 +657,33 @@ function buildSupabaseHeaders(prefer = "return=minimal") {
   }
 
   return headers;
+}
+
+async function fetchWithRetry(endpoint, options, onRetry) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= SUPABASE_REQUEST_ATTEMPTS; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), SUPABASE_REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(endpoint, { ...options, signal: controller.signal });
+      if (response.ok || attempt === SUPABASE_REQUEST_ATTEMPTS || (response.status < 500 && response.status !== 429)) {
+        return response;
+      }
+
+      lastError = new Error(`Supabase вернул ошибку ${response.status}.`);
+    } catch (error) {
+      lastError = error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+
+    onRetry?.(attempt + 1, SUPABASE_REQUEST_ATTEMPTS);
+    await wait(1000 * attempt);
+  }
+
+  throw lastError;
 }
 
 function saveProgress() {

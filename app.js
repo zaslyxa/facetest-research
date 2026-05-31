@@ -23,7 +23,7 @@ const state = {
   trials: [],
   trialIndex: -1,
   rows: [],
-  surveyQuestions: [],
+  surveySections: [],
   surveyIndex: 0,
   questionnaireAnswers: {},
   phase: "setup",
@@ -51,7 +51,6 @@ const els = {
   surveyCounter: document.getElementById("surveyCounter"),
   surveySectionTitle: document.getElementById("surveySectionTitle"),
   surveyDescription: document.getElementById("surveyDescription"),
-  surveyQuestion: document.getElementById("surveyQuestion"),
   surveyOptions: document.getElementById("surveyOptions"),
   surveyError: document.getElementById("surveyError"),
   surveyBackButton: document.getElementById("surveyBackButton"),
@@ -218,11 +217,11 @@ function handleParticipantSubmit(event) {
     order: index + 1
   }));
 
-  state.surveyQuestions = flattenSurveyQuestions();
+  state.surveySections = getSurveySections();
   state.surveyIndex = 0;
   state.questionnaireAnswers = {};
   state.phase = "survey";
-  renderSurveyQuestion();
+  renderSurveySection();
   showView("survey");
 }
 
@@ -230,19 +229,22 @@ async function handleSurveySubmit(event) {
   event.preventDefault();
   els.surveyError.textContent = "";
 
-  const current = state.surveyQuestions[state.surveyIndex];
-  const selected = new FormData(els.surveyForm).get("surveyAnswer");
+  const section = state.surveySections[state.surveyIndex];
+  const formData = new FormData(els.surveyForm);
+  const missingQuestion = section.questions.find((question) => !formData.get(question.id));
 
-  if (!selected) {
-    els.surveyError.textContent = "Выберите один вариант ответа.";
+  if (missingQuestion) {
+    els.surveyError.textContent = "Ответьте на все вопросы на этой странице.";
+    document.getElementById(`survey-${missingQuestion.id}`)?.scrollIntoView({ block: "center" });
     return;
   }
 
-  state.questionnaireAnswers[current.question.id] = selected;
+  rememberSurveyAnswers(section, formData);
 
-  if (state.surveyIndex < state.surveyQuestions.length - 1) {
+  if (state.surveyIndex < state.surveySections.length - 1) {
     state.surveyIndex += 1;
-    renderSurveyQuestion();
+    renderSurveySection();
+    window.scrollTo({ top: 0 });
     return;
   }
 
@@ -266,54 +268,71 @@ async function handleSurveySubmit(event) {
 function handleSurveyBack() {
   if (state.surveyIndex === 0) return;
 
+  rememberSurveyAnswers(state.surveySections[state.surveyIndex], new FormData(els.surveyForm));
   state.surveyIndex -= 1;
   els.surveyError.textContent = "";
-  renderSurveyQuestion();
+  renderSurveySection();
+  window.scrollTo({ top: 0 });
 }
 
-function flattenSurveyQuestions() {
+function rememberSurveyAnswers(section, formData) {
+  section.questions.forEach((question) => {
+    const answer = formData.get(question.id);
+    if (answer) state.questionnaireAnswers[question.id] = answer;
+  });
+}
+
+function getSurveySections() {
   const questionnaire = window.PRETEST_QUESTIONNAIRE;
   if (!questionnaire?.sections?.length) {
     throw new Error("Не удалось загрузить предтестовый опросник.");
   }
 
-  return questionnaire.sections.flatMap((section) => (
-    section.questions.map((question) => ({ section, question }))
-  ));
+  return questionnaire.sections;
 }
 
-function renderSurveyQuestion() {
-  const current = state.surveyQuestions[state.surveyIndex];
-  const { section, question } = current;
-  const savedAnswer = state.questionnaireAnswers[question.id];
-
+function renderSurveySection() {
+  const section = state.surveySections[state.surveyIndex];
   els.surveyProgress.textContent = "Опрос перед тестом";
-  els.surveyCounter.textContent = `${state.surveyIndex + 1} / ${state.surveyQuestions.length}`;
+  els.surveyCounter.textContent = `${state.surveyIndex + 1} / ${state.surveySections.length}`;
   els.surveySectionTitle.textContent = section.title;
   els.surveyDescription.textContent = section.description;
-  els.surveyQuestion.textContent = getQuestionText(question);
   els.surveyOptions.innerHTML = "";
   els.surveyBackButton.disabled = state.surveyIndex === 0;
   els.surveyNextButton.disabled = false;
-  els.surveyNextButton.textContent = state.surveyIndex === state.surveyQuestions.length - 1
+  els.surveyNextButton.textContent = state.surveyIndex === state.surveySections.length - 1
     ? "Завершить опрос"
     : "Далее";
 
-  section.options.forEach((option) => {
-    const label = document.createElement("label");
-    label.className = "survey-option";
+  section.questions.forEach((question, questionIndex) => {
+    const fieldset = document.createElement("fieldset");
+    fieldset.className = "survey-question";
+    fieldset.id = `survey-${question.id}`;
 
-    const input = document.createElement("input");
-    input.type = "radio";
-    input.name = "surveyAnswer";
-    input.value = option.value;
-    input.checked = option.value === savedAnswer;
+    const legend = document.createElement("legend");
+    legend.textContent = `${questionIndex + 1}. ${getQuestionText(question)}`;
 
-    const text = document.createElement("span");
-    text.textContent = option.label;
+    const options = document.createElement("div");
+    options.className = "survey-option-grid";
+    section.options.forEach((option) => {
+      const label = document.createElement("label");
+      label.className = "survey-option";
 
-    label.append(input, text);
-    els.surveyOptions.append(label);
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = question.id;
+      input.value = option.value;
+      input.checked = option.value === state.questionnaireAnswers[question.id];
+
+      const text = document.createElement("span");
+      text.textContent = option.label;
+
+      label.append(input, text);
+      options.append(label);
+    });
+
+    fieldset.append(legend, options);
+    els.surveyOptions.append(fieldset);
   });
 }
 

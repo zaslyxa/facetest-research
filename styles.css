@@ -207,27 +207,33 @@ button:focus-visible {
   margin-top: 16px;
 }
 
-.survey-fieldset {
-  min-width: 0;
-  margin: 0;
-  border: 0;
-  padding: 0;
+.survey-options {
+  display: grid;
+  gap: 18px;
+  margin-top: 10px;
 }
 
-.survey-fieldset legend {
-  width: 100%;
+.survey-question {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.survey-question legend {
+  padding-inline: 4px;
   color: var(--text);
-  font-size: 1.08rem;
+  font-size: 1rem;
   font-weight: 700;
   line-height: 1.4;
 }
 
-.survey-options {
+.survey-option-grid {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 6px;
-  width: min(620px, 100%);
-  margin-top: 10px;
-  margin-inline: auto;
+  margin-top: 8px;
 }
 
 .survey-option {
@@ -298,13 +304,13 @@ button:focus-visible {
     margin-top: 10px;
   }
 
-  .survey-fieldset legend {
+  .survey-question legend {
     font-size: 0.98rem;
     line-height: 1.25;
   }
 
   .survey-options {
-    gap: 4px;
+    gap: 12px;
     margin-top: 8px;
   }
 
@@ -406,7 +412,7 @@ button:focus-visible {
     align-items: flex-start;
   }
 
-  .survey-fieldset legend {
+  .survey-question legend {
     min-height: 0;
   }
 }

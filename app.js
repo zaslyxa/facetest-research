@@ -20,6 +20,12 @@ const debugQueryMode = query.get("debug") === "1";
 const debugMode = debugQueryMode || config.showDebugDownload;
 const ACTIVE_PROGRESS_KEY = "facetest_active_progress_v1";
 const SETUP_DRAFT_KEY = "facetest_setup_draft_v1";
+const PENDING_SUBMISSIONS_KEY = "facetest_pending_submissions_v1";
+const LEGACY_FAILED_SUBMISSIONS_KEY = "facetest_failed_submissions";
+const BACKGROUND_SYNC_INTERVAL_MS = 30000;
+const pendingResponseSaves = new Set();
+const hasLocalStorage = canUseLocalStorage();
+let pendingSubmissionSync = Promise.resolve({ ok: true });
 
 const state = {
   photoSets: [],
@@ -77,8 +83,11 @@ init();
 
 async function init() {
   bindEvents();
+  startPendingSubmissionSync();
   els.durationLabel.textContent = formatDuration(config.stimulusDurationMs);
-  els.touchResponseControls.classList.toggle("hidden", !hasTouchInput());
+  if (!hasLocalStorage) {
+    els.setupError.textContent = "Браузер запретил локальное сохранение. Не обновляйте страницу: после перезагрузки продолжить тест с того же места не получится.";
+  }
 
   const deviceCheck = getDeviceCheck();
   if (!deviceCheck.ok) {
@@ -282,16 +291,11 @@ async function handleSurveySubmit(event) {
 
   els.surveyNextButton.disabled = true;
   els.surveyBackButton.disabled = true;
-  els.surveyError.textContent = "Сохраняем ответы...";
   saveProgress();
 
-  const result = await saveSessionToSupabase();
-  if (!result.ok) {
-    els.surveyError.textContent = result.message;
-    els.surveyNextButton.disabled = false;
-    els.surveyBackButton.disabled = false;
-    return;
-  }
+  const session = buildSessionRow();
+  queuePendingSubmission({ session });
+  saveSessionInBackground(session);
 
   els.readyGroup.textContent = state.selectedSet.label;
   state.phase = "ready";
@@ -482,6 +486,8 @@ function handleRecognition(answer) {
 
   state.rows.push(row);
   saveProgress();
+  queuePendingSubmission({ rows: [row] });
+  saveResponseInBackground(row);
   showNextTrial();
 }
 
@@ -498,6 +504,7 @@ function buildRow({ answer, recognized, reactionTimeMs }) {
   const participant = state.participant;
 
   return {
+    id: createResponseId(state.sessionId, trial.order),
     session_id: state.sessionId,
     participant_id: participant.id,
     participant_name: participant.identifier,
@@ -530,31 +537,30 @@ async function finishExperiment() {
   els.downloadCsvButton.classList.toggle("hidden", !debugMode);
   showView("finish");
 
-  const result = await saveToSupabase(state.rows);
+  const session = buildSessionRow();
+  const queuedLocally = queuePendingSubmission({ session, rows: state.rows });
+  await Promise.allSettled([...pendingResponseSaves]);
+  const result = queuedLocally
+    ? await syncPendingSubmissions({
+      onlySessionId: state.sessionId,
+      requestAttempts: config.supabaseRequestAttempts,
+      updateStatus: true
+    })
+    : await saveCurrentSubmissionToSupabase(session);
   if (result.ok) {
     els.saveStatus.textContent = "Результаты сохранены.";
     clearProgress();
     return;
   }
 
-  queueFailedSubmission(state.rows);
   els.downloadCsvButton.classList.remove("hidden");
-  els.saveStatus.textContent = `${result.message} Нажмите «Скачать CSV» и отправьте файл исследователю.`;
+  els.saveStatus.textContent = `${result.message} Нажмите «Скачать CSV» и отправьте файл исследователю. В файле сохранены ответы на вопросы анкеты и результаты фототеста.`;
   downloadCsv();
 }
 
-async function saveSessionToSupabase() {
-  const hasConfig = config.supabaseUrl && config.supabaseAnonKey;
-  if (!hasConfig) {
-    return {
-      ok: false,
-      message: "Supabase пока не настроен. Невозможно сохранить опросник."
-    };
-  }
-
-  const endpoint = `${config.supabaseUrl.replace(/\/$/, "")}/rest/v1/experiment_sessions`;
+function buildSessionRow() {
   const participant = state.participant;
-  const row = {
+  return {
     session_id: state.sessionId,
     participant_id: participant.id,
     participant_identifier: participant.identifier,
@@ -570,15 +576,34 @@ async function saveSessionToSupabase() {
     questionnaire_answers: state.questionnaireAnswers,
     user_agent: navigator.userAgent
   };
+}
 
+function saveSessionInBackground(session) {
+  const request = saveSessionToSupabase(session, { requestAttempts: 1 });
+  pendingResponseSaves.add(request);
+  request
+    .then((result) => {
+      if (result.ok) clearPendingSession(session.session_id);
+    })
+    .finally(() => pendingResponseSaves.delete(request));
+}
+
+async function saveSessionToSupabase(row, { requestAttempts = config.supabaseRequestAttempts, onRetry } = {}) {
+  const hasConfig = config.supabaseUrl && config.supabaseAnonKey;
+  if (!hasConfig) {
+    return {
+      ok: false,
+      message: "Supabase пока не настроен. Невозможно сохранить опросник."
+    };
+  }
+
+  const endpoint = `${config.supabaseUrl.replace(/\/$/, "")}/rest/v1/experiment_sessions`;
   try {
     const response = await fetchWithRetry(endpoint, {
       method: "POST",
       headers: buildSupabaseHeaders(),
       body: JSON.stringify(row)
-    }, (attempt, total) => {
-      els.surveyError.textContent = `Нет соединения с базой. Повторная попытка ${attempt} из ${total}...`;
-    });
+    }, onRetry, requestAttempts);
 
     if (!response.ok) {
       const message = await response.text();
@@ -610,7 +635,17 @@ function isDuplicateSessionError(message) {
   }
 }
 
-async function saveToSupabase(rows) {
+function saveResponseInBackground(row) {
+  const request = saveToSupabase([row], { requestAttempts: 1 });
+  pendingResponseSaves.add(request);
+  request
+    .then((result) => {
+      if (result.ok) clearPendingRows(row.session_id, [row]);
+    })
+    .finally(() => pendingResponseSaves.delete(request));
+}
+
+async function saveToSupabase(rows, { requestAttempts = config.supabaseRequestAttempts, onRetry } = {}) {
   const hasConfig = config.supabaseUrl && config.supabaseAnonKey;
   if (!hasConfig) {
     return {
@@ -623,12 +658,10 @@ async function saveToSupabase(rows) {
   try {
     const response = await fetchWithRetry(endpoint, {
       method: "POST",
-      headers: buildSupabaseHeaders(),
-      body: JSON.stringify(rows),
+      headers: buildSupabaseHeaders("return=minimal,resolution=ignore-duplicates"),
+      body: JSON.stringify(rows.map(withResponseId)),
       keepalive: true
-    }, (attempt, total) => {
-      els.saveStatus.textContent = `Нет соединения с базой. Повторная попытка ${attempt} из ${total}...`;
-    });
+    }, onRetry, requestAttempts);
 
     if (!response.ok) {
       const message = await response.text();
@@ -661,16 +694,28 @@ function buildSupabaseHeaders(prefer = "return=minimal") {
   return headers;
 }
 
-async function fetchWithRetry(endpoint, options, onRetry) {
+function withResponseId(row) {
+  return {
+    ...row,
+    id: row.id || createResponseId(row.session_id, row.stimulus_order)
+  };
+}
+
+function createResponseId(sessionId, stimulusOrder) {
+  const orderHex = Number(stimulusOrder).toString(16).padStart(8, "0").slice(-8);
+  return `${sessionId.slice(0, -8)}${orderHex}`;
+}
+
+async function fetchWithRetry(endpoint, options, onRetry, requestAttempts = config.supabaseRequestAttempts) {
   let lastError;
 
-  for (let attempt = 1; attempt <= config.supabaseRequestAttempts; attempt += 1) {
+  for (let attempt = 1; attempt <= requestAttempts; attempt += 1) {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), config.supabaseRequestTimeoutMs);
 
     try {
       const response = await fetch(endpoint, { ...options, signal: controller.signal });
-      if (response.ok || attempt === config.supabaseRequestAttempts || (response.status < 500 && response.status !== 429)) {
+      if (response.ok || attempt === requestAttempts || (response.status < 500 && response.status !== 429)) {
         return response;
       }
 
@@ -681,11 +726,202 @@ async function fetchWithRetry(endpoint, options, onRetry) {
       window.clearTimeout(timeoutId);
     }
 
-    onRetry?.(attempt + 1, config.supabaseRequestAttempts);
+    onRetry?.(attempt + 1, requestAttempts);
     await wait(Math.min(1000 * attempt, 5000));
   }
 
   throw lastError;
+}
+
+function startPendingSubmissionSync() {
+  migrateLegacyFailedSubmissions();
+  void syncPendingSubmissions();
+  window.addEventListener("online", () => void syncPendingSubmissions());
+  window.setInterval(() => void syncPendingSubmissions(), BACKGROUND_SYNC_INTERVAL_MS);
+}
+
+function syncPendingSubmissions({
+  onlySessionId = "",
+  requestAttempts = 1,
+  updateStatus = false
+} = {}) {
+  const run = () => performPendingSubmissionSync({ onlySessionId, requestAttempts, updateStatus });
+  pendingSubmissionSync = pendingSubmissionSync.then(run, run);
+  return pendingSubmissionSync;
+}
+
+async function performPendingSubmissionSync({ onlySessionId, requestAttempts, updateStatus }) {
+  const submissions = getPendingSubmissions()
+    .filter((submission) => !onlySessionId || submission.sessionId === onlySessionId);
+
+  if (submissions.length === 0) return { ok: true };
+
+  for (const submission of submissions) {
+    const onRetry = updateStatus
+      ? (attempt, total) => {
+        els.saveStatus.textContent = `Нет соединения с базой. Повторная попытка ${attempt} из ${total}...`;
+      }
+      : undefined;
+
+    if (submission.session) {
+      const sessionResult = await saveSessionToSupabase(submission.session, { requestAttempts, onRetry });
+      if (!sessionResult.ok) return sessionResult;
+    }
+
+    if (submission.rows.length > 0) {
+      const responseResult = await saveToSupabase(submission.rows, { requestAttempts, onRetry });
+      if (!responseResult.ok) return responseResult;
+    }
+
+    clearSyncedSubmission(submission);
+  }
+
+  markCurrentSubmissionAsSynced();
+  return { ok: true };
+}
+
+function queuePendingSubmission({ session = null, rows = [] }) {
+  const sessionId = session?.session_id || rows[0]?.session_id;
+  if (!sessionId) return false;
+
+  const submissions = getPendingSubmissions();
+  const current = submissions.find((submission) => submission.sessionId === sessionId);
+  if (current) {
+    if (session) current.session = session;
+    current.rows = mergeRows(current.rows, rows);
+    current.savedAt = new Date().toISOString();
+  } else {
+    submissions.push({
+      sessionId,
+      savedAt: new Date().toISOString(),
+      session,
+      rows: mergeRows([], rows)
+    });
+  }
+
+  return writePendingSubmissions(submissions);
+}
+
+function clearPendingSession(sessionId) {
+  updatePendingSubmission(sessionId, (submission) => {
+    submission.session = null;
+  });
+}
+
+function clearPendingRows(sessionId, rows) {
+  const savedRowKeys = new Set(rows.map(getResponseKey));
+  updatePendingSubmission(sessionId, (submission) => {
+    submission.rows = submission.rows.filter((row) => !savedRowKeys.has(getResponseKey(row)));
+  });
+}
+
+function clearSyncedSubmission(syncedSubmission) {
+  const savedRowKeys = new Set(syncedSubmission.rows.map(getResponseKey));
+  updatePendingSubmission(syncedSubmission.sessionId, (submission) => {
+    if (syncedSubmission.session) submission.session = null;
+    submission.rows = submission.rows.filter((row) => !savedRowKeys.has(getResponseKey(row)));
+  });
+}
+
+function updatePendingSubmission(sessionId, update) {
+  const submissions = getPendingSubmissions();
+  const submission = submissions.find((item) => item.sessionId === sessionId);
+  if (!submission) return;
+
+  update(submission);
+  writePendingSubmissions(
+    submissions.filter((item) => item.session || item.rows.length > 0)
+  );
+}
+
+function getPendingSubmissions() {
+  try {
+    const submissions = JSON.parse(localStorage.getItem(PENDING_SUBMISSIONS_KEY) || "[]");
+    if (!Array.isArray(submissions)) return [];
+    return submissions.map(normalizePendingSubmission).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function normalizePendingSubmission(submission) {
+  const session = submission?.session || null;
+  const rows = Array.isArray(submission?.rows) ? submission.rows : [];
+  const sessionId = submission?.sessionId || session?.session_id || rows[0]?.session_id;
+  if (!sessionId) return null;
+
+  return {
+    sessionId,
+    savedAt: submission.savedAt || new Date().toISOString(),
+    session,
+    rows: mergeRows([], rows)
+  };
+}
+
+function writePendingSubmissions(submissions) {
+  try {
+    localStorage.setItem(PENDING_SUBMISSIONS_KEY, JSON.stringify(submissions));
+    return true;
+  } catch {
+    // Local storage can be disabled in private browsing modes.
+    return false;
+  }
+}
+
+function mergeRows(currentRows, newRows) {
+  const rowsByKey = new Map(currentRows.map((row) => [getResponseKey(row), row]));
+  newRows.forEach((row) => rowsByKey.set(getResponseKey(row), row));
+  return [...rowsByKey.values()];
+}
+
+function getResponseKey(row) {
+  return row.id || createResponseId(row.session_id, row.stimulus_order);
+}
+
+function migrateLegacyFailedSubmissions() {
+  let failedSubmissions;
+  try {
+    failedSubmissions = JSON.parse(localStorage.getItem(LEGACY_FAILED_SUBMISSIONS_KEY) || "[]");
+  } catch {
+    failedSubmissions = [];
+  }
+
+  if (!Array.isArray(failedSubmissions)) return;
+  failedSubmissions.forEach((submission) => {
+    queuePendingSubmission({ rows: Array.isArray(submission.rows) ? submission.rows : [] });
+  });
+
+  try {
+    localStorage.removeItem(LEGACY_FAILED_SUBMISSIONS_KEY);
+  } catch {
+    // Local storage can be disabled in private browsing modes.
+  }
+}
+
+async function saveCurrentSubmissionToSupabase(session) {
+  const onRetry = (attempt, total) => {
+    els.saveStatus.textContent = `Нет соединения с базой. Повторная попытка ${attempt} из ${total}...`;
+  };
+  const sessionResult = await saveSessionToSupabase(session, {
+    requestAttempts: config.supabaseRequestAttempts,
+    onRetry
+  });
+  if (!sessionResult.ok) return sessionResult;
+
+  return saveToSupabase(state.rows, {
+    requestAttempts: config.supabaseRequestAttempts,
+    onRetry
+  });
+}
+
+function markCurrentSubmissionAsSynced() {
+  if (state.phase !== "finish") return;
+  const isStillPending = getPendingSubmissions()
+    .some((submission) => submission.sessionId === state.sessionId);
+  if (isStillPending) return;
+
+  els.saveStatus.textContent = "Результаты сохранены.";
+  clearProgress();
 }
 
 function saveProgress() {
@@ -705,6 +941,17 @@ function saveProgress() {
     }));
   } catch {
     // Local storage can be disabled in private browsing modes.
+  }
+}
+
+function canUseLocalStorage() {
+  const testKey = "facetest_storage_test";
+  try {
+    localStorage.setItem(testKey, "1");
+    localStorage.removeItem(testKey);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -814,22 +1061,11 @@ function showResetProgressButtons() {
   });
 }
 
-function queueFailedSubmission(rows) {
-  try {
-    const key = "facetest_failed_submissions";
-    const current = JSON.parse(localStorage.getItem(key) || "[]");
-    current.push({
-      savedAt: new Date().toISOString(),
-      rows
-    });
-    localStorage.setItem(key, JSON.stringify(current));
-  } catch {
-    // Local storage can be disabled in private browsing modes.
-  }
-}
-
 function downloadCsv() {
+  const questionnaireHeaders = Object.keys(state.questionnaireAnswers)
+    .map((questionId) => `questionnaire_${questionId}`);
   const headers = [
+    "id",
     "session_id",
     "participant_id",
     "participant_name",
@@ -849,12 +1085,24 @@ function downloadCsv() {
     "recognized",
     "reaction_time_ms",
     "shown_at",
-    "user_agent"
+    "user_agent",
+    "session_institution",
+    "questionnaire_answers",
+    ...questionnaireHeaders
   ];
 
+  const rows = state.rows.map((row) => ({
+    ...row,
+    session_institution: state.participant.institution,
+    questionnaire_answers: JSON.stringify(state.questionnaireAnswers),
+    ...Object.fromEntries(
+      Object.entries(state.questionnaireAnswers)
+        .map(([questionId, answer]) => [`questionnaire_${questionId}`, answer])
+    )
+  }));
   const lines = [
     headers.join(","),
-    ...state.rows.map((row) => headers.map((header) => csvCell(row[header])).join(","))
+    ...rows.map((row) => headers.map((header) => csvCell(row[header])).join(","))
   ];
 
   const blob = new Blob([`\ufeff${lines.join("\n")}`], { type: "text/csv;charset=utf-8" });
@@ -942,10 +1190,6 @@ function getDeviceCheck() {
   }
 
   return { ok: true };
-}
-
-function hasTouchInput() {
-  return navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse)").matches;
 }
 
 function shuffle(items) {

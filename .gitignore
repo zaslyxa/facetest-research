@@ -4,3 +4,5 @@ Thumbs.db
 server.err
 .env.local
 /фото/
+/outputs/
+__pycache__/

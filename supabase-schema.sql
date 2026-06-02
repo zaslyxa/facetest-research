@@ -70,5 +70,8 @@ with check (true);
 create index if not exists experiment_responses_session_idx
 on public.experiment_responses (session_id, stimulus_order);
 
+create unique index if not exists experiment_responses_session_order_unique_idx
+on public.experiment_responses (session_id, stimulus_order);
+
 create index if not exists experiment_responses_created_at_idx
 on public.experiment_responses (created_at);

@@ -97,7 +97,7 @@
           </p>
           <p class="lede">
             Если Вы видели человека на фото, нажимайте клавишу "Y", если нет - клавишу "N".
-            На планшете используйте кнопки на экране.
+            Можно также использовать кнопки на экране.
             Каждая фотография предъявляется максимум на <span id="durationLabel">3 секунды</span> или до момента ответа.
           </p>
           <p class="lede">
@@ -116,9 +116,9 @@
           <img class="hidden" id="stimulusImage" alt="Стимул исследования">
           <div class="number-stimulus hidden" id="numberStimulus" aria-label="Числовой стимул"></div>
         </figure>
-        <div class="touch-response-controls hidden" id="touchResponseControls" aria-label="Кнопки ответа">
-          <button class="touch-response touch-response--yes" type="button" data-answer="Y">Да, видел(а)</button>
-          <button class="touch-response touch-response--no" type="button" data-answer="N">Нет, не видел(а)</button>
+        <div class="touch-response-controls" id="touchResponseControls" aria-label="Кнопки ответа">
+          <button class="touch-response touch-response--yes" type="button" data-answer="Y" aria-keyshortcuts="Y">Да, видел(а)</button>
+          <button class="touch-response touch-response--no" type="button" data-answer="N" aria-keyshortcuts="N">Нет, не видел(а)</button>
         </div>
       </section>
 
@@ -138,6 +138,6 @@
     <script src="config.js"></script>
     <script src="data/photo-sets.js"></script>
     <script src="data/pretest-questionnaire.js"></script>
-    <script src="app.js?v=20260531-10"></script>
+    <script src="app.js?v=20260602-1"></script>
   </body>
 </html>

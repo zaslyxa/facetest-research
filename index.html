@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Анкета участника</title>
-    <link rel="stylesheet" href="styles.css?v=20260531-3">
+    <link rel="stylesheet" href="styles.css?v=20260606-1">
   </head>
   <body>
     <main class="shell" id="app">
@@ -97,7 +97,6 @@
           </p>
           <p class="lede">
             Если Вы видели человека на фото, нажимайте клавишу "Y", если нет - клавишу "N".
-            Можно также использовать кнопки на экране.
             Каждая фотография предъявляется максимум на <span id="durationLabel">3 секунды</span> или до момента ответа.
           </p>
           <p class="lede">
@@ -116,16 +115,12 @@
           <img class="hidden" id="stimulusImage" alt="Стимул исследования">
           <div class="number-stimulus hidden" id="numberStimulus" aria-label="Числовой стимул"></div>
         </figure>
-        <div class="touch-response-controls" id="touchResponseControls" aria-label="Кнопки ответа">
-          <button class="touch-response touch-response--yes" type="button" data-answer="Y" aria-keyshortcuts="Y">Да, видел(а)</button>
-          <button class="touch-response touch-response--no" type="button" data-answer="N" aria-keyshortcuts="N">Нет, не видел(а)</button>
-        </div>
       </section>
 
       <section class="view hidden" id="finishView" aria-labelledby="finishTitle">
         <div class="panel panel--narrow">
           <p class="eyebrow">Сессия завершена</p>
-          <h2 id="finishTitle">Спасибо за участие</h2>
+          <h2 id="finishTitle">Скачайте CSV-файл</h2>
           <p class="lede" id="finishSummary"></p>
           <p class="save-status" id="saveStatus" role="status"></p>
           <button class="secondary-action hidden" id="downloadCsvButton" type="button">
@@ -138,6 +133,6 @@
     <script src="config.js"></script>
     <script src="data/photo-sets.js"></script>
     <script src="data/pretest-questionnaire.js"></script>
-    <script src="app.js?v=20260602-1"></script>
+    <script src="app.js?v=20260606-1"></script>
   </body>
 </html>

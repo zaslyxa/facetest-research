@@ -23,6 +23,8 @@ const SETUP_DRAFT_KEY = "facetest_setup_draft_v1";
 const PENDING_SUBMISSIONS_KEY = "facetest_pending_submissions_v1";
 const LEGACY_FAILED_SUBMISSIONS_KEY = "facetest_failed_submissions";
 const BACKGROUND_SYNC_INTERVAL_MS = 30000;
+const FINISH_DOWNLOAD_PROMPT = "Скачайте CSV-файл с результатами и отправьте его исследователю.";
+const FINISH_DOWNLOAD_DETAILS = "В файле сохранены ответы на вопросы анкеты и результаты фототеста.";
 const pendingResponseSaves = new Set();
 const hasLocalStorage = canUseLocalStorage();
 let pendingSubmissionSync = Promise.resolve({ ok: true });
@@ -71,7 +73,6 @@ const els = {
   loadStatus: document.getElementById("loadStatus"),
   beginButton: document.getElementById("beginButton"),
   responseHint: document.getElementById("responseHint"),
-  touchResponseControls: document.getElementById("touchResponseControls"),
   stimulusImage: document.getElementById("stimulusImage"),
   numberStimulus: document.getElementById("numberStimulus"),
   finishSummary: document.getElementById("finishSummary"),
@@ -121,7 +122,7 @@ function bindEvents() {
   });
   els.surveyBackButton.addEventListener("click", handleSurveyBack);
   els.beginButton.addEventListener("click", beginExperiment);
-  els.downloadCsvButton.addEventListener("click", downloadCsv);
+  els.downloadCsvButton.addEventListener("click", handleCsvDownload);
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-reset-progress]");
     if (!button) return;
@@ -130,12 +131,6 @@ function bindEvents() {
     clearSetupDraft();
     window.location.reload();
   });
-  els.touchResponseControls.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-answer]");
-    if (!button) return;
-    handleRecognition(button.dataset.answer);
-  });
-
   window.addEventListener("keydown", (event) => {
     if (!["stimulus", "waiting_response"].includes(state.phase) || event.repeat) return;
 
@@ -532,9 +527,8 @@ async function finishExperiment() {
   clearStimulusTimers();
   state.phase = "finish";
   saveProgress();
-  els.finishSummary.textContent = `Записано ответов: ${state.rows.length}. ID сессии: ${state.sessionId}.`;
-  els.saveStatus.textContent = "Сохраняем результаты...";
-  els.downloadCsvButton.classList.toggle("hidden", !debugMode);
+  showCsvDownloadPrompt();
+  setSaveStatus("Сохраняем результаты...");
   showView("finish");
 
   const session = buildSessionRow();
@@ -548,14 +542,32 @@ async function finishExperiment() {
     })
     : await saveCurrentSubmissionToSupabase(session);
   if (result.ok) {
-    els.saveStatus.textContent = "Результаты сохранены.";
+    setSaveStatus("Результаты сохранены.");
     clearProgress();
     return;
   }
 
+  setSaveStatus(result.message);
+  showCsvDownloadPrompt();
+}
+
+function showCsvDownloadPrompt() {
+  els.finishTitle.textContent = "Скачайте CSV-файл";
+  els.finishSummary.textContent = `${FINISH_DOWNLOAD_PROMPT} ${FINISH_DOWNLOAD_DETAILS}`;
+  els.downloadCsvButton.textContent = "Скачать CSV";
   els.downloadCsvButton.classList.remove("hidden");
-  els.saveStatus.textContent = `${result.message} Нажмите «Скачать CSV» и отправьте файл исследователю. В файле сохранены ответы на вопросы анкеты и результаты фототеста.`;
+}
+
+function handleCsvDownload() {
   downloadCsv();
+  els.finishTitle.textContent = "Спасибо за участие";
+  els.finishSummary.textContent = "CSV-файл скачан. Его можно отправить исследователю.";
+  els.downloadCsvButton.textContent = "Скачать CSV ещё раз";
+  clearProgress();
+}
+
+function setSaveStatus(message) {
+  els.saveStatus.textContent = message;
 }
 
 function buildSessionRow() {
@@ -759,7 +771,7 @@ async function performPendingSubmissionSync({ onlySessionId, requestAttempts, up
   for (const submission of submissions) {
     const onRetry = updateStatus
       ? (attempt, total) => {
-        els.saveStatus.textContent = `Нет соединения с базой. Повторная попытка ${attempt} из ${total}...`;
+        setSaveStatus(`Нет соединения с базой. Повторная попытка ${attempt} из ${total}...`);
       }
       : undefined;
 
@@ -900,7 +912,7 @@ function migrateLegacyFailedSubmissions() {
 
 async function saveCurrentSubmissionToSupabase(session) {
   const onRetry = (attempt, total) => {
-    els.saveStatus.textContent = `Нет соединения с базой. Повторная попытка ${attempt} из ${total}...`;
+    setSaveStatus(`Нет соединения с базой. Повторная попытка ${attempt} из ${total}...`);
   };
   const sessionResult = await saveSessionToSupabase(session, {
     requestAttempts: config.supabaseRequestAttempts,
@@ -920,7 +932,7 @@ function markCurrentSubmissionAsSynced() {
     .some((submission) => submission.sessionId === state.sessionId);
   if (isStillPending) return;
 
-  els.saveStatus.textContent = "Результаты сохранены.";
+  setSaveStatus("Результаты сохранены.");
   clearProgress();
 }
 

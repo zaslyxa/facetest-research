@@ -49,9 +49,13 @@ button {
 .view--experiment {
   background: #ffffff;
   align-content: stretch;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   padding: 20px 16px;
+}
+
+#finishView {
+  padding-bottom: 72px;
 }
 
 .hidden {
@@ -359,32 +363,6 @@ button:focus-visible {
   text-align: center;
 }
 
-.touch-response-controls {
-  width: min(620px, 100%);
-  justify-self: center;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.touch-response {
-  min-height: 58px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--text);
-  font-weight: 700;
-  padding: 12px 16px;
-}
-
-.touch-response--yes {
-  background: #edf8f6;
-  border-color: var(--accent);
-}
-
-.touch-response--no {
-  background: #ffffff;
-}
-
 .stimulus-frame img,
 .number-stimulus {
   min-height: 0;
@@ -419,10 +397,19 @@ button:focus-visible {
 }
 
 .save-status {
-  margin: 18px 0 0;
+  position: fixed;
+  right: 16px;
+  bottom: 10px;
+  left: 16px;
+  z-index: 2;
+  margin: 0 auto;
+  max-width: 860px;
   color: var(--muted);
-  line-height: 1.45;
-  font-weight: 700;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
 }
 
 @media (max-width: 700px) {

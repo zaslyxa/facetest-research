@@ -3,6 +3,7 @@ window.EXPERIMENT_CONFIG = {
   supabaseAnonKey: "YOUR_PUBLIC_ANON_KEY",
   supabaseTable: "experiment_responses",
   stimulusDurationMs: 3000,
+  interStimulusIntervalMs: 500,
   requireMinimumViewport: true,
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,

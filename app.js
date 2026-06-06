@@ -3,6 +3,7 @@ const DEFAULT_CONFIG = {
   supabaseAnonKey: "",
   supabaseTable: "experiment_responses",
   stimulusDurationMs: 3000,
+  interStimulusIntervalMs: 500,
   requireMinimumViewport: true,
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
@@ -561,7 +562,10 @@ function handleRecognition(answer) {
   saveProgress();
   queuePendingSubmission({ rows: [row] });
   saveResponseInBackground(row);
-  showNextTrial();
+  state.stimulusTimerId = window.setTimeout(() => {
+    state.stimulusTimerId = null;
+    void showNextTrial();
+  }, config.interStimulusIntervalMs);
 }
 
 function handleStimulusLoadError(error) {

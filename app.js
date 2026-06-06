@@ -7,8 +7,8 @@ const DEFAULT_CONFIG = {
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
   preloadConcurrency: 3,
-  initialPreloadCount: 6,
-  preloadLookaheadCount: 6,
+  initialPreloadCount: 60,
+  preloadLookaheadCount: 60,
   supabaseRequestAttempts: 8,
   supabaseRequestTimeoutMs: 15000,
   allowSetChoiceWhenMissingUrl: true,
@@ -413,11 +413,11 @@ function getQuestionText(question) {
 
 async function beginExperiment() {
   els.beginButton.disabled = true;
-  els.loadStatus.textContent = "Подготавливаем первые стимулы...";
+  els.loadStatus.textContent = "Подготавливаем все фотографии...";
 
   try {
     await preloadUpcomingImages(state.rows.length, config.initialPreloadCount, (loaded, total) => {
-      els.loadStatus.textContent = `Подготавливаем первые стимулы: ${loaded} из ${total}...`;
+      els.loadStatus.textContent = `Подготавливаем все фотографии: ${loaded} из ${total}...`;
     });
   } catch (error) {
     els.loadStatus.textContent = error.message;

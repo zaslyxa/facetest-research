@@ -7,6 +7,8 @@ const DEFAULT_CONFIG = {
   minimumViewportWidth: 760,
   minimumViewportHeight: 520,
   preloadConcurrency: 3,
+  initialPreloadCount: 6,
+  preloadLookaheadCount: 6,
   supabaseRequestAttempts: 8,
   supabaseRequestTimeoutMs: 15000,
   allowSetChoiceWhenMissingUrl: true,
@@ -34,6 +36,8 @@ const FINISH_DOWNLOAD_DETAILS = skipTextQuestionnaire
   ? "В файле сохранены анкетные данные и результаты фототеста."
   : "В файле сохранены ответы на вопросы анкеты и результаты фототеста.";
 const pendingResponseSaves = new Set();
+const loadedImageSrcs = new Set();
+const imageLoadRequests = new Map();
 const hasLocalStorage = canUseLocalStorage();
 let pendingSubmissionSync = Promise.resolve({ ok: true });
 
@@ -409,15 +413,12 @@ function getQuestionText(question) {
 
 async function beginExperiment() {
   els.beginButton.disabled = true;
-  els.loadStatus.textContent = "Подготавливаем стимулы...";
+  els.loadStatus.textContent = "Подготавливаем первые стимулы...";
 
   try {
-    await preloadImages(
-      state.trials.slice(state.rows.length).filter((trial) => trial.type === "image").map((trial) => trial.src),
-      (loaded, total) => {
-        els.loadStatus.textContent = `Подготавливаем стимулы: ${loaded} из ${total}...`;
-      }
-    );
+    await preloadUpcomingImages(state.rows.length, config.initialPreloadCount, (loaded, total) => {
+      els.loadStatus.textContent = `Подготавливаем первые стимулы: ${loaded} из ${total}...`;
+    });
   } catch (error) {
     els.loadStatus.textContent = error.message;
     els.beginButton.disabled = false;
@@ -426,11 +427,11 @@ async function beginExperiment() {
 
   els.loadStatus.textContent = "Стимулы готовы.";
   state.trialIndex = state.rows.length - 1;
-  showNextTrial();
+  await showNextTrial();
 }
 
 async function preloadImages(srcList, onProgress) {
-  const queue = [...srcList];
+  const queue = [...new Set(srcList)].filter((src) => !loadedImageSrcs.has(src));
   const total = queue.length;
   let loaded = 0;
 
@@ -439,7 +440,7 @@ async function preloadImages(srcList, onProgress) {
   async function worker() {
     while (queue.length > 0) {
       const src = queue.shift();
-      await loadImageWithRetry(src);
+      await ensureImageLoaded(src);
       loaded += 1;
       onProgress?.(loaded, total);
     }
@@ -447,6 +448,40 @@ async function preloadImages(srcList, onProgress) {
 
   const concurrency = Math.max(1, Math.min(config.preloadConcurrency, total));
   await Promise.all(Array.from({ length: concurrency }, worker));
+}
+
+function preloadUpcomingImages(startIndex, count, onProgress) {
+  const limit = Math.max(1, Number(count) || 1);
+  const srcList = state.trials
+    .slice(Math.max(0, startIndex))
+    .filter((trial) => trial.type === "image")
+    .slice(0, limit)
+    .map((trial) => trial.src);
+
+  return preloadImages(srcList, onProgress);
+}
+
+function preloadUpcomingImagesInBackground(startIndex) {
+  preloadUpcomingImages(startIndex, config.preloadLookaheadCount)
+    .catch(() => {
+      // The current image is still loaded synchronously before display; failed
+      // lookahead requests will be retried when the trial becomes current.
+    });
+}
+
+function ensureImageLoaded(src) {
+  if (loadedImageSrcs.has(src)) return Promise.resolve();
+  if (imageLoadRequests.has(src)) return imageLoadRequests.get(src);
+
+  const request = loadImageWithRetry(src)
+    .then(() => {
+      loadedImageSrcs.add(src);
+    })
+    .finally(() => {
+      imageLoadRequests.delete(src);
+    });
+  imageLoadRequests.set(src, request);
+  return request;
 }
 
 async function loadImageWithRetry(src, attempts = 3) {
@@ -474,7 +509,7 @@ function wait(durationMs) {
   return new Promise((resolve) => window.setTimeout(resolve, durationMs));
 }
 
-function showNextTrial() {
+async function showNextTrial() {
   state.trialIndex += 1;
 
   if (state.trialIndex >= state.trials.length) {
@@ -484,11 +519,22 @@ function showNextTrial() {
 
   const trial = state.trials[state.trialIndex];
   state.currentTrial = trial;
-  state.phase = "stimulus";
+  state.phase = "loading_stimulus";
 
+  if (trial.type === "image") {
+    try {
+      await ensureImageLoaded(trial.src);
+    } catch (error) {
+      handleStimulusLoadError(error);
+      return;
+    }
+  }
+
+  state.phase = "stimulus";
   renderStimulus(trial);
 
   showView("experiment");
+  preloadUpcomingImagesInBackground(state.trialIndex + 1);
 
   requestAnimationFrame(() => {
     state.stimulusStartedAt = performance.now();
@@ -516,6 +562,15 @@ function handleRecognition(answer) {
   queuePendingSubmission({ rows: [row] });
   saveResponseInBackground(row);
   showNextTrial();
+}
+
+function handleStimulusLoadError(error) {
+  clearStimulusDisplay();
+  state.phase = "ready";
+  els.loadStatus.textContent = error.message;
+  els.beginButton.disabled = false;
+  els.beginButton.textContent = "Продолжить демонстрацию";
+  showView("ready");
 }
 
 function hideStimulusAndWait() {

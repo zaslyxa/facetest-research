@@ -766,8 +766,7 @@ async function saveToSupabase(rows, { requestAttempts = config.supabaseRequestAt
     const response = await fetchWithRetry(endpoint, {
       method: "POST",
       headers: buildSupabaseHeaders("return=minimal,resolution=ignore-duplicates"),
-      body: JSON.stringify(rows.map(withResponseId)),
-      keepalive: true
+      body: JSON.stringify(rows.map(withResponseId))
     }, onRetry, requestAttempts);
 
     if (!response.ok) {
@@ -788,17 +787,12 @@ async function saveToSupabase(rows, { requestAttempts = config.supabaseRequestAt
 }
 
 function buildSupabaseHeaders(prefer = "return=minimal") {
-  const headers = {
+  return {
     apikey: config.supabaseAnonKey,
+    Authorization: `Bearer ${config.supabaseAnonKey}`,
     "Content-Type": "application/json",
     Prefer: prefer
   };
-
-  if (!config.supabaseAnonKey.startsWith("sb_publishable_")) {
-    headers.Authorization = `Bearer ${config.supabaseAnonKey}`;
-  }
-
-  return headers;
 }
 
 function withResponseId(row) {

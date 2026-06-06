@@ -1,0 +1,15 @@
+/*
+  Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+
+/assets/photos/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/data/photo-sets.js
+  Cache-Control: public, max-age=86400
+
+/data/photo-sets.json
+  Cache-Control: public, max-age=86400
+
+/data/pretest-questionnaire.js
+  Cache-Control: public, max-age=86400

@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "build:cloudflare": "node tools/build-cloudflare-pages.js"
+  }
+}

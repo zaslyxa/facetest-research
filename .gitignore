@@ -5,4 +5,5 @@ server.err
 .env.local
 /фото/
 /outputs/
+/dist/
 __pycache__/

@@ -633,6 +633,7 @@ async function finishExperiment() {
     })
     : await saveCurrentSubmissionToSupabase(session);
   if (result.ok) {
+    showSavedResultsMessage();
     setSaveStatus("Результаты сохранены.");
     clearProgress();
     return;
@@ -649,10 +650,16 @@ function showCsvDownloadPrompt() {
   els.downloadCsvButton.classList.remove("hidden");
 }
 
+function showSavedResultsMessage() {
+  els.finishTitle.textContent = "Результаты сохранены";
+  els.finishSummary.textContent = "Спасибо за участие.";
+  els.downloadCsvButton.classList.add("hidden");
+}
+
 function handleCsvDownload() {
   downloadCsv();
-  els.finishTitle.textContent = "Спасибо за участие";
-  els.finishSummary.textContent = "CSV-файл скачан. Его можно отправить исследователю.";
+  els.finishTitle.textContent = "CSV-файл скачан";
+  els.finishSummary.textContent = "Отправьте этот файл исследователю: в нем резервная копия ваших ответов.";
   els.downloadCsvButton.textContent = "Скачать CSV ещё раз";
   clearProgress();
 }
@@ -1025,6 +1032,7 @@ function markCurrentSubmissionAsSynced() {
     .some((submission) => submission.sessionId === state.sessionId);
   if (isStillPending) return;
 
+  showSavedResultsMessage();
   setSaveStatus("Результаты сохранены.");
   clearProgress();
 }

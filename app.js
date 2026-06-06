@@ -16,15 +16,23 @@ const DEFAULT_CONFIG = {
 const config = { ...DEFAULT_CONFIG, ...(window.EXPERIMENT_CONFIG || {}) };
 const query = new URLSearchParams(window.location.search);
 const forcedSetId = query.get("set");
+const experimentStage = query.get("stage") === "2" ? "2" : "1";
+const skipTextQuestionnaire = experimentStage === "2";
 const debugQueryMode = query.get("debug") === "1";
 const debugMode = debugQueryMode || config.showDebugDownload;
-const ACTIVE_PROGRESS_KEY = "facetest_active_progress_v1";
-const SETUP_DRAFT_KEY = "facetest_setup_draft_v1";
+const ACTIVE_PROGRESS_KEY = skipTextQuestionnaire
+  ? "facetest_active_progress_stage2_v1"
+  : "facetest_active_progress_v1";
+const SETUP_DRAFT_KEY = skipTextQuestionnaire
+  ? "facetest_setup_draft_stage2_v1"
+  : "facetest_setup_draft_v1";
 const PENDING_SUBMISSIONS_KEY = "facetest_pending_submissions_v1";
 const LEGACY_FAILED_SUBMISSIONS_KEY = "facetest_failed_submissions";
 const BACKGROUND_SYNC_INTERVAL_MS = 30000;
 const FINISH_DOWNLOAD_PROMPT = "Скачайте CSV-файл с результатами и отправьте его исследователю.";
-const FINISH_DOWNLOAD_DETAILS = "В файле сохранены ответы на вопросы анкеты и результаты фототеста.";
+const FINISH_DOWNLOAD_DETAILS = skipTextQuestionnaire
+  ? "В файле сохранены анкетные данные и результаты фототеста."
+  : "В файле сохранены ответы на вопросы анкеты и результаты фототеста.";
 const pendingResponseSaves = new Set();
 const hasLocalStorage = canUseLocalStorage();
 let pendingSubmissionSync = Promise.resolve({ ok: true });
@@ -55,6 +63,7 @@ const els = {
   readyView: document.getElementById("readyView"),
   experimentView: document.getElementById("experimentView"),
   finishView: document.getElementById("finishView"),
+  finishTitle: document.getElementById("finishTitle"),
   participantForm: document.getElementById("participantForm"),
   setField: document.getElementById("setField"),
   photoSetSelect: document.getElementById("photoSetSelect"),
@@ -250,11 +259,18 @@ function handleParticipantSubmit(event) {
     order: index + 1
   }));
 
-  state.surveySections = getSurveySections();
+  state.surveySections = skipTextQuestionnaire ? [] : getSurveySections();
   state.surveyIndex = 0;
-  state.questionnaireAnswers = {};
+  state.questionnaireAnswers = getInitialQuestionnaireAnswers();
   state.phase = "survey";
   clearSetupDraft();
+
+  if (skipTextQuestionnaire) {
+    queueSessionForCurrentState();
+    showReadyView();
+    return;
+  }
+
   saveProgress();
   renderSurveySection();
   showView("survey");
@@ -288,14 +304,8 @@ async function handleSurveySubmit(event) {
   els.surveyBackButton.disabled = true;
   saveProgress();
 
-  const session = buildSessionRow();
-  queuePendingSubmission({ session });
-  saveSessionInBackground(session);
-
-  els.readyGroup.textContent = state.selectedSet.label;
-  state.phase = "ready";
-  saveProgress();
-  showView("ready");
+  queueSessionForCurrentState();
+  showReadyView();
 }
 
 function handleSurveyBack() {
@@ -323,6 +333,28 @@ function getSurveySections() {
   }
 
   return questionnaire.sections;
+}
+
+function getInitialQuestionnaireAnswers() {
+  if (!skipTextQuestionnaire) return {};
+
+  return {
+    _experiment_stage: experimentStage,
+    _text_questionnaire_skipped: "true"
+  };
+}
+
+function queueSessionForCurrentState() {
+  const session = buildSessionRow();
+  queuePendingSubmission({ session });
+  saveSessionInBackground(session);
+}
+
+function showReadyView() {
+  els.readyGroup.textContent = state.selectedSet.label;
+  state.phase = "ready";
+  saveProgress();
+  showView("ready");
 }
 
 function renderSurveySection() {
@@ -585,8 +617,16 @@ function buildSessionRow() {
     viewport_height: window.innerHeight,
     device_pixel_ratio: window.devicePixelRatio || 1,
     stimulus_set_id: state.selectedSet.id,
-    questionnaire_answers: state.questionnaireAnswers,
+    questionnaire_answers: getSessionQuestionnaireAnswers(),
     user_agent: navigator.userAgent
+  };
+}
+
+function getSessionQuestionnaireAnswers() {
+  if (!skipTextQuestionnaire) return state.questionnaireAnswers;
+  return {
+    ...getInitialQuestionnaireAnswers(),
+    ...state.questionnaireAnswers
   };
 }
 
@@ -942,6 +982,8 @@ function saveProgress() {
   try {
     localStorage.setItem(ACTIVE_PROGRESS_KEY, JSON.stringify({
       savedAt: new Date().toISOString(),
+      experimentStage,
+      skipTextQuestionnaire,
       sessionId: state.sessionId,
       participant: state.participant,
       selectedSetId: state.selectedSet.id,
@@ -1030,13 +1072,21 @@ function restoreProgress() {
   state.selectedSet = selectedSet;
   state.trials = progress.trials;
   state.rows = Array.isArray(progress.rows) ? progress.rows : [];
-  state.surveySections = getSurveySections();
+  if (progress.experimentStage && progress.experimentStage !== experimentStage) {
+    clearProgress();
+    return false;
+  }
+
+  state.surveySections = skipTextQuestionnaire ? [] : getSurveySections();
   state.surveyIndex = Math.max(0, Math.min(Number(progress.surveyIndex) || 0, state.surveySections.length - 1));
-  state.questionnaireAnswers = progress.questionnaireAnswers || {};
+  state.questionnaireAnswers = {
+    ...getInitialQuestionnaireAnswers(),
+    ...(progress.questionnaireAnswers || {})
+  };
 
   showResetProgressButtons();
 
-  if (progress.phase === "survey") {
+  if (progress.phase === "survey" && !skipTextQuestionnaire) {
     state.phase = "survey";
     renderSurveySection();
     showView("survey");
@@ -1075,6 +1125,7 @@ function showResetProgressButtons() {
 
 function downloadCsv() {
   const questionnaireHeaders = Object.keys(state.questionnaireAnswers)
+    .filter((questionId) => !questionId.startsWith("_"))
     .map((questionId) => `questionnaire_${questionId}`);
   const headers = [
     "id",
@@ -1099,6 +1150,8 @@ function downloadCsv() {
     "shown_at",
     "user_agent",
     "session_institution",
+    "experiment_stage",
+    "text_questionnaire_skipped",
     "questionnaire_answers",
     ...questionnaireHeaders
   ];
@@ -1106,9 +1159,12 @@ function downloadCsv() {
   const rows = state.rows.map((row) => ({
     ...row,
     session_institution: state.participant.institution,
-    questionnaire_answers: JSON.stringify(state.questionnaireAnswers),
+    experiment_stage: experimentStage,
+    text_questionnaire_skipped: skipTextQuestionnaire ? "true" : "false",
+    questionnaire_answers: JSON.stringify(getSessionQuestionnaireAnswers()),
     ...Object.fromEntries(
       Object.entries(state.questionnaireAnswers)
+        .filter(([questionId]) => !questionId.startsWith("_"))
         .map(([questionId, answer]) => [`questionnaire_${questionId}`, answer])
     )
   }));

@@ -60,6 +60,12 @@ node tools/check-project.js
 
 Если параметр `set` не указан, приложение покажет выбор группы в анкете. Это можно отключить в `config.js`, установив `allowSetChoiceWhenMissingUrl: false`.
 
+Для второго этапа исследования, где участник заполняет только анкетные данные и сразу переходит к фототесту, используйте отдельную страницу `stage2.html`:
+
+- Группа 1, этап 2: `https://YOUR_SITE/stage2.html?set=set-a`
+- Группа 2, этап 2: `https://YOUR_SITE/stage2.html?set=set-b`
+- Группа 3, этап 2: `https://YOUR_SITE/stage2.html?set=set-c`
+
 ## Настройка Supabase
 
 1. Создайте проект в Supabase.

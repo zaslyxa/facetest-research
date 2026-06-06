@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Facetest: stage 2</title>
+    <script>
+      const target = new URL("index.html", window.location.href);
+      const params = new URLSearchParams(window.location.search);
+      params.set("stage", "2");
+      target.search = params.toString();
+      window.location.replace(target);
+    </script>
+  </head>
+  <body>
+    <p>
+      Open the second-stage test:
+      <a href="index.html?stage=2">index.html?stage=2</a>
+    </p>
+  </body>
+</html>

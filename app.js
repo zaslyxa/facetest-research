@@ -25,10 +25,10 @@ const skipTextQuestionnaire = experimentStage === "2";
 const debugQueryMode = query.get("debug") === "1";
 const debugMode = debugQueryMode || config.showDebugDownload;
 const ACTIVE_PROGRESS_KEY = skipTextQuestionnaire
-  ? "facetest_active_progress_stage2_v1"
+  ? "facetest_active_progress_stage2_v2"
   : "facetest_active_progress_v1";
 const SETUP_DRAFT_KEY = skipTextQuestionnaire
-  ? "facetest_setup_draft_stage2_v1"
+  ? "facetest_setup_draft_stage2_v2"
   : "facetest_setup_draft_v1";
 const PENDING_SUBMISSIONS_KEY = "facetest_pending_submissions_v1";
 const LEGACY_FAILED_SUBMISSIONS_KEY = "facetest_failed_submissions";

@@ -99,6 +99,7 @@ init();
 async function init() {
   bindEvents();
   startPendingSubmissionSync();
+  configureSetupForStage();
   els.durationLabel.textContent = formatDuration(config.stimulusDurationMs);
   if (!hasLocalStorage) {
     els.setupError.textContent = "Браузер запретил локальное сохранение. Не обновляйте страницу: после перезагрузки продолжить тест с того же места не получится.";
@@ -122,6 +123,34 @@ async function init() {
     els.setupError.textContent = error.message;
     els.participantForm.querySelector("button").disabled = true;
   }
+}
+
+function configureSetupForStage() {
+  if (!skipTextQuestionnaire) return;
+
+  const setupDescription = els.setupView.querySelector(".lede");
+  if (setupDescription) {
+    setupDescription.textContent = "Введите имя или ID. После этого начнется загрузка фотографий для теста.";
+  }
+
+  const identifierLabel = els.participantForm.elements.namedItem("identifier")?.closest(".field");
+  const identifierText = identifierLabel?.querySelector("span");
+  if (identifierText) identifierText.textContent = "Имя или ID";
+
+  hideSetupFieldWithValue("age", "1");
+  hideSetupFieldWithValue("gender", "other");
+  hideSetupFieldWithValue("institution", "stage-2");
+  els.setField.classList.add("hidden");
+  els.photoSetSelect.required = false;
+}
+
+function hideSetupFieldWithValue(fieldName, value) {
+  const field = els.participantForm.elements.namedItem(fieldName);
+  if (!field) return;
+
+  field.value = value;
+  field.required = false;
+  field.closest(".field")?.classList.add("hidden");
 }
 
 function bindEvents() {
@@ -237,16 +266,18 @@ function handleParticipantSubmit(event) {
     return;
   }
 
-  const age = Number(formData.get("age"));
+  const age = skipTextQuestionnaire ? 1 : Number(formData.get("age"));
   if (!Number.isInteger(age) || age < 1 || age > 120) {
     els.setupError.textContent = "Укажите возраст числом от 1 до 120.";
     return;
   }
 
   const identifier = String(formData.get("identifier")).trim();
-  const institution = String(formData.get("institution")).trim();
+  const institution = skipTextQuestionnaire ? "stage-2" : String(formData.get("institution")).trim();
   if (!identifier || !institution) {
-    els.setupError.textContent = "Заполните ID и вуз/факультет.";
+    els.setupError.textContent = skipTextQuestionnaire
+      ? "Введите имя или ID."
+      : "Заполните ID и вуз/факультет.";
     return;
   }
 
@@ -254,7 +285,7 @@ function handleParticipantSubmit(event) {
     id: createId(),
     identifier,
     age,
-    gender: String(formData.get("gender")),
+    gender: skipTextQuestionnaire ? "other" : String(formData.get("gender")),
     institution
   };
 

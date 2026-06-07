@@ -692,8 +692,9 @@ function showSavingResultsMessage() {
 
 function showSavedResultsMessage() {
   els.finishTitle.textContent = "Результаты сохранены";
-  els.finishSummary.textContent = "Спасибо за участие. Данные записаны, вкладку можно закрыть.";
-  els.downloadCsvButton.classList.add("hidden");
+  els.finishSummary.textContent = "Спасибо за участие. Данные записаны, вкладку можно закрыть. CSV-файл можно скачать как резервную копию.";
+  els.downloadCsvButton.textContent = "Скачать CSV";
+  els.downloadCsvButton.classList.remove("hidden");
 }
 
 function handleCsvDownload() {

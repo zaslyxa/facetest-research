@@ -3,8 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Анкета участника</title>
-    <link rel="stylesheet" href="styles.css?v=20260607-1">
+    <link rel="stylesheet" href="styles.css?v=20260607-3">
   </head>
   <body>
     <main class="shell" id="app">
@@ -103,7 +106,7 @@
             Пожалуйста, постарайтесь долго не задумываться - отвечать надо максимально точно и быстро!
             Желательно заранее найти две нужные клавиши, раскладку менять не надо.
           </p>
-          <p class="muted" id="loadStatus">Стимулы будут подготовлены перед стартом.</p>
+          <p class="muted load-progress" id="loadStatus">Стимулы будут подготовлены перед стартом.</p>
           <button class="primary-action" id="beginButton" type="button">Начать демонстрацию</button>
           <button class="secondary-action hidden" type="button" data-reset-progress>Начать заново</button>
         </div>
@@ -130,9 +133,9 @@
       </section>
     </main>
 
-    <script src="config.js?v=20260607-1"></script>
+    <script src="config.js?v=20260607-3"></script>
     <script src="data/photo-sets.js"></script>
     <script src="data/pretest-questionnaire.js"></script>
-    <script src="app.js?v=20260607-1"></script>
+    <script src="app.js?v=20260607-3"></script>
   </body>
 </html>

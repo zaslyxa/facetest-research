@@ -19,7 +19,8 @@ const DEFAULT_CONFIG = {
 const config = { ...DEFAULT_CONFIG, ...(window.EXPERIMENT_CONFIG || {}) };
 const query = new URLSearchParams(window.location.search);
 const forcedSetId = query.get("set");
-const experimentStage = query.get("stage") === "2" ? "2" : "1";
+const shouldUpgradeLegacyGroupLink = Boolean(forcedSetId) && !query.has("stage");
+const experimentStage = query.get("stage") === "2" || shouldUpgradeLegacyGroupLink ? "2" : "1";
 const skipTextQuestionnaire = experimentStage === "2";
 const debugQueryMode = query.get("debug") === "1";
 const debugMode = debugQueryMode || config.showDebugDownload;

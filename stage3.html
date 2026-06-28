@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Facetest: stage 3</title>
+    <script>
+      const target = new URL("index.html", window.location.href);
+      const params = new URLSearchParams(window.location.search);
+      params.set("stage", "3");
+      params.set("build", "20260628-1");
+      target.search = params.toString();
+      window.location.replace(target);
+    </script>
+  </head>
+  <body>
+    <p>
+      Open the third-stage test:
+      <a href="index.html?stage=3">index.html?stage=3</a>
+    </p>
+  </body>
+</html>

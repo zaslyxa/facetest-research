@@ -20,24 +20,40 @@ const config = { ...DEFAULT_CONFIG, ...(window.EXPERIMENT_CONFIG || {}) };
 const query = new URLSearchParams(window.location.search);
 const forcedSetId = query.get("set");
 const shouldUpgradeLegacyGroupLink = Boolean(forcedSetId) && !query.has("stage");
-const experimentStage = query.get("stage") === "2" || shouldUpgradeLegacyGroupLink ? "2" : "1";
-const skipTextQuestionnaire = experimentStage === "2";
+const requestedStage = query.get("stage");
+const experimentStage = requestedStage === "3" ? "3" : requestedStage === "2" || shouldUpgradeLegacyGroupLink ? "2" : "1";
+const isStage3 = experimentStage === "3";
+const skipTextQuestionnaire = experimentStage === "2" || isStage3;
 const debugQueryMode = query.get("debug") === "1";
 const debugMode = debugQueryMode || config.showDebugDownload;
-const ACTIVE_PROGRESS_KEY = skipTextQuestionnaire
+const ACTIVE_PROGRESS_KEY = isStage3
+  ? "facetest_active_progress_stage3_v1"
+  : skipTextQuestionnaire
   ? "facetest_active_progress_stage2_v2"
   : "facetest_active_progress_v1";
-const SETUP_DRAFT_KEY = skipTextQuestionnaire
+const SETUP_DRAFT_KEY = isStage3
+  ? "facetest_setup_draft_stage3_v1"
+  : skipTextQuestionnaire
   ? "facetest_setup_draft_stage2_v2"
   : "facetest_setup_draft_v1";
 const PENDING_SUBMISSIONS_KEY = "facetest_pending_submissions_v1";
 const LEGACY_FAILED_SUBMISSIONS_KEY = "facetest_failed_submissions";
 const BACKGROUND_SYNC_INTERVAL_MS = 30000;
 const FINISH_DOWNLOAD_PROMPT = "Скачайте CSV-файл с результатами и отправьте его исследователю.";
-const FINISH_DOWNLOAD_DETAILS = skipTextQuestionnaire
-  ? "В файле сохранены анкетные данные и результаты фототеста."
+const FINISH_DOWNLOAD_DETAILS = isStage3
+  ? "В файле сохранены результаты фототеста и ответы по фотографиям людей."
+  : skipTextQuestionnaire
+  ? "В файле сохранены результаты фототеста."
   : "В файле сохранены ответы на вопросы анкеты и результаты фототеста.";
 const FINISH_SAVING_PROMPT = "Не закрывайте вкладку: данные отправляются в базу. Обычно это занимает несколько секунд. Дождитесь сообщения «Результаты сохранены». Если ожидание затянулось, скачайте CSV-файл и отправьте его исследователю.";
+const STAGE3_ACTOR_PHOTOS = Array.from({ length: 20 }, (_, index) => {
+  const number = index + 1;
+  return {
+    id: `actor-${number}`,
+    sourceOrder: number,
+    src: `assets/stage3-actors/${number}.png`
+  };
+});
 const pendingResponseSaves = new Set();
 const loadedImageSrcs = new Set();
 const imageLoadRequests = new Map();
@@ -59,6 +75,10 @@ const state = {
   stimulusStartedAt: 0,
   stimulusStartedIso: "",
   stimulusTimerId: null,
+  actorTrials: [],
+  actorIndex: 0,
+  actorStartedAt: 0,
+  actorStartedIso: "",
   sessionId: createId()
 };
 
@@ -69,6 +89,13 @@ const els = {
   surveyView: document.getElementById("surveyView"),
   readyView: document.getElementById("readyView"),
   experimentView: document.getElementById("experimentView"),
+  stage3IntroView: document.getElementById("stage3IntroView"),
+  stage3IntroButton: document.getElementById("stage3IntroButton"),
+  stage3View: document.getElementById("stage3View"),
+  stage3Form: document.getElementById("stage3Form"),
+  stage3Photo: document.getElementById("stage3Photo"),
+  stage3MemoryText: document.getElementById("stage3MemoryText"),
+  stage3Error: document.getElementById("stage3Error"),
   finishView: document.getElementById("finishView"),
   finishTitle: document.getElementById("finishTitle"),
   participantForm: document.getElementById("participantForm"),
@@ -141,7 +168,7 @@ function configureSetupForStage() {
 
   hideSetupFieldWithValue("age", "1");
   hideSetupFieldWithValue("gender", "other");
-  hideSetupFieldWithValue("institution", "stage-2");
+  hideSetupFieldWithValue("institution", isStage3 ? "stage-3" : "stage-2");
   els.setField.classList.add("hidden");
   els.photoSetSelect.required = false;
 }
@@ -167,6 +194,8 @@ function bindEvents() {
   });
   els.surveyBackButton.addEventListener("click", handleSurveyBack);
   els.beginButton.addEventListener("click", beginExperiment);
+  els.stage3IntroButton?.addEventListener("click", startActorMemoryBlock);
+  els.stage3Form?.addEventListener("submit", handleStage3Submit);
   els.downloadCsvButton.addEventListener("click", handleCsvDownload);
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-reset-progress]");
@@ -275,7 +304,9 @@ function handleParticipantSubmit(event) {
   }
 
   const identifier = String(formData.get("identifier")).trim();
-  const institution = skipTextQuestionnaire ? "stage-2" : String(formData.get("institution")).trim();
+  const institution = skipTextQuestionnaire
+    ? isStage3 ? "stage-3" : "stage-2"
+    : String(formData.get("institution")).trim();
   if (!identifier || !institution) {
     els.setupError.textContent = skipTextQuestionnaire
       ? "Введите имя или ID."
@@ -296,6 +327,8 @@ function handleParticipantSubmit(event) {
     ...stimulus,
     order: index + 1
   }));
+  state.actorTrials = isStage3 ? createActorTrials() : [];
+  state.actorIndex = 0;
 
   state.surveySections = skipTextQuestionnaire ? [] : getSurveySections();
   state.surveyIndex = 0;
@@ -445,12 +478,28 @@ function getQuestionText(question) {
   return state.participant.gender === "female" ? question.text.female : question.text.male;
 }
 
+function createActorTrials() {
+  return shuffle(STAGE3_ACTOR_PHOTOS).map((actor, index) => ({
+    ...actor,
+    order: index + 1
+  }));
+}
+
+function getRecognitionRows() {
+  return state.rows.filter((row) => row.stimulus_type !== "actor_memory");
+}
+
+function getActorMemoryRows() {
+  return state.rows.filter((row) => row.stimulus_type === "actor_memory");
+}
+
 async function beginExperiment() {
   els.beginButton.disabled = true;
+  const recognitionRows = getRecognitionRows();
   els.loadStatus.textContent = `Загрузка фото: 0 из ${config.initialPreloadCount}`;
 
   try {
-    await preloadUpcomingImages(state.rows.length, config.initialPreloadCount, (loaded, total) => {
+    await preloadUpcomingImages(recognitionRows.length, config.initialPreloadCount, (loaded, total) => {
       els.loadStatus.textContent = `Загрузка фото: ${loaded} из ${total}`;
     });
   } catch (error) {
@@ -460,7 +509,7 @@ async function beginExperiment() {
   }
 
   els.loadStatus.textContent = "Стимулы готовы.";
-  state.trialIndex = state.rows.length - 1;
+  state.trialIndex = recognitionRows.length - 1;
   await showNextTrial();
 }
 
@@ -547,6 +596,10 @@ async function showNextTrial() {
   state.trialIndex += 1;
 
   if (state.trialIndex >= state.trials.length) {
+    if (isStage3 && getActorMemoryRows().length < STAGE3_ACTOR_PHOTOS.length) {
+      showStage3Intro();
+      return;
+    }
     finishExperiment();
     return;
   }
@@ -601,6 +654,75 @@ function handleRecognition(answer) {
   }, config.interStimulusIntervalMs);
 }
 
+function showStage3Intro() {
+  state.phase = "stage3_intro";
+  if (!state.actorTrials.length) state.actorTrials = createActorTrials();
+  state.actorIndex = getActorMemoryRows().length;
+  saveProgress();
+  showView("stage3Intro");
+}
+
+async function startActorMemoryBlock() {
+  if (!state.actorTrials.length) state.actorTrials = createActorTrials();
+  state.actorIndex = getActorMemoryRows().length;
+  await showStage3Actor();
+}
+
+async function showStage3Actor() {
+  if (state.actorIndex >= state.actorTrials.length) {
+    finishExperiment();
+    return;
+  }
+
+  const actor = state.actorTrials[state.actorIndex];
+  state.phase = "stage3_actor";
+  state.actorStartedAt = performance.now();
+  state.actorStartedIso = new Date().toISOString();
+  els.stage3Form.reset();
+  els.stage3Error.textContent = "";
+
+  try {
+    await ensureImageLoaded(actor.src);
+  } catch (error) {
+    els.stage3Error.textContent = error.message;
+    return;
+  }
+
+  els.stage3Photo.src = actor.src;
+  saveProgress();
+  showView("stage3");
+}
+
+function handleStage3Submit(event) {
+  event.preventDefault();
+  if (state.phase !== "stage3_actor") return;
+
+  els.stage3Error.textContent = "";
+  const formData = new FormData(els.stage3Form);
+  const remembered = formData.get("stage3Remembered");
+  const confidence = formData.get("stage3Confidence");
+  if (!remembered || !confidence) {
+    els.stage3Error.textContent = "Ответьте на вопросы с выбором ответа.";
+    return;
+  }
+
+  state.phase = "stage3_between";
+  const row = buildActorMemoryRow({
+    actor: state.actorTrials[state.actorIndex],
+    remembered,
+    confidence,
+    memoryText: String(formData.get("stage3MemoryText") || "").trim(),
+    reactionTimeMs: Math.round(performance.now() - state.actorStartedAt)
+  });
+
+  state.rows.push(row);
+  state.actorIndex += 1;
+  saveProgress();
+  queuePendingSubmission({ rows: [row] });
+  saveResponseInBackground(row);
+  void showStage3Actor();
+}
+
 function handleStimulusLoadError(error) {
   clearStimulusDisplay();
   state.phase = "ready";
@@ -643,6 +765,41 @@ function buildRow({ answer, recognized, reactionTimeMs }) {
     recognized,
     reaction_time_ms: reactionTimeMs,
     shown_at: state.stimulusStartedIso,
+    user_agent: navigator.userAgent
+  };
+}
+
+function buildActorMemoryRow({ actor, remembered, confidence, memoryText, reactionTimeMs }) {
+  const participant = state.participant;
+  const stimulusOrder = state.trials.length + actor.order;
+
+  return {
+    id: createResponseId(state.sessionId, stimulusOrder),
+    session_id: state.sessionId,
+    participant_id: participant.id,
+    participant_name: participant.identifier,
+    participant_age: participant.age,
+    participant_gender: participant.gender,
+    screen_width: window.screen.width,
+    screen_height: window.screen.height,
+    viewport_width: window.innerWidth,
+    viewport_height: window.innerHeight,
+    device_pixel_ratio: window.devicePixelRatio || 1,
+    stimulus_set_id: state.selectedSet.id,
+    stimulus_id: actor.id,
+    stimulus_order: stimulusOrder,
+    stimulus_type: "actor_memory",
+    stimulus_value: JSON.stringify({
+      actor_order: actor.order,
+      source_order: actor.sourceOrder,
+      src: actor.src,
+      confidence,
+      memory_text: memoryText
+    }),
+    answer: remembered === "yes" ? "Y" : "N",
+    recognized: remembered === "yes",
+    reaction_time_ms: reactionTimeMs,
+    shown_at: state.actorStartedIso,
     user_agent: navigator.userAgent
   };
 }
@@ -1127,6 +1284,8 @@ function saveProgress() {
       participant: state.participant,
       selectedSetId: state.selectedSet.id,
       trials: state.trials,
+      actorTrials: state.actorTrials,
+      actorIndex: state.actorIndex,
       rows: state.rows,
       surveyIndex: state.surveyIndex,
       questionnaireAnswers: state.questionnaireAnswers,
@@ -1211,6 +1370,12 @@ function restoreProgress() {
   state.selectedSet = selectedSet;
   state.trials = progress.trials;
   state.rows = Array.isArray(progress.rows) ? progress.rows : [];
+  state.actorTrials = isStage3
+    ? Array.isArray(progress.actorTrials) && progress.actorTrials.length
+      ? progress.actorTrials
+      : createActorTrials()
+    : [];
+  state.actorIndex = Math.max(0, Math.min(Number(progress.actorIndex) || 0, state.actorTrials.length));
   if (progress.experimentStage && progress.experimentStage !== experimentStage) {
     clearProgress();
     return false;
@@ -1232,16 +1397,35 @@ function restoreProgress() {
     return true;
   }
 
-  if (progress.phase === "finish" || state.rows.length >= state.trials.length) {
+  const recognitionRows = getRecognitionRows();
+  const actorRows = getActorMemoryRows();
+
+  if (isStage3 && recognitionRows.length >= state.trials.length) {
+    if (progress.phase === "finish" || actorRows.length >= STAGE3_ACTOR_PHOTOS.length) {
+      finishExperiment();
+      return true;
+    }
+
+    state.actorIndex = Math.min(actorRows.length, state.actorTrials.length);
+    if (progress.phase === "stage3_actor" || actorRows.length > 0) {
+      void showStage3Actor();
+      return true;
+    }
+
+    showStage3Intro();
+    return true;
+  }
+
+  if (progress.phase === "finish" || recognitionRows.length >= state.trials.length) {
     finishExperiment();
     return true;
   }
 
   state.phase = "ready";
   els.readyGroup.textContent = state.selectedSet.label;
-  els.beginButton.textContent = state.rows.length > 0 ? "Продолжить демонстрацию" : "Начать демонстрацию";
-  els.loadStatus.textContent = state.rows.length > 0
-    ? `Прогресс восстановлен: отвечено ${state.rows.length} из ${state.trials.length}.`
+  els.beginButton.textContent = recognitionRows.length > 0 ? "Продолжить демонстрацию" : "Начать демонстрацию";
+  els.loadStatus.textContent = recognitionRows.length > 0
+    ? `Прогресс восстановлен: отвечено ${recognitionRows.length} из ${state.trials.length}.`
     : "Стимулы будут подготовлены перед стартом.";
   saveProgress();
   showView("ready");
@@ -1333,6 +1517,8 @@ function showView(viewName) {
     survey: els.surveyView,
     ready: els.readyView,
     experiment: els.experimentView,
+    stage3Intro: els.stage3IntroView,
+    stage3: els.stage3View,
     finish: els.finishView
   };
 

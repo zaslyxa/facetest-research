@@ -120,6 +120,50 @@
         </figure>
       </section>
 
+      <section class="view hidden" id="stage3IntroView" aria-labelledby="stage3IntroTitle">
+        <div class="panel panel--narrow">
+          <h2 id="stage3IntroTitle">Перед началом второй части</h2>
+          <p class="lede">
+            Теперь Вам будут предъявлены фотографии людей, с которыми Вы взаимодействовали. Постарайтесь вспомнить что-то конкретное о них (какие эмоции показывал, особенности поведения, отличительные черты и т.д.) и впишите в поле для ответа то, что удалось вспомнить. Если Вы не можете вспомнить ничего, оставьте поле для ответа пустым или напишите "нет".
+          </p>
+          <p class="lede">
+            Пожалуйста, отнеситесь серьезно к этой части тестирования - оно не займет много времени, вопросов всего 20. Мы не ждем развернутых ответов в виде сочинения, писать желательно кратко, но так чтобы Ваш ответ возможно было расшифровать.
+          </p>
+          <button class="primary-action" id="stage3IntroButton" type="button">Далее</button>
+        </div>
+      </section>
+
+      <section class="view view--stage3 hidden" id="stage3View" aria-label="Вопросы о человеке">
+        <form class="stage3-panel" id="stage3Form">
+          <img class="stage3-photo" id="stage3Photo" alt="">
+          <div class="stage3-questions">
+            <fieldset class="stage3-question">
+              <legend>Помните ли Вы этого человека?</legend>
+              <div class="stage3-options">
+                <label class="survey-option stage3-option"><input type="radio" name="stage3Remembered" value="yes">Да</label>
+                <label class="survey-option stage3-option"><input type="radio" name="stage3Remembered" value="no">Нет</label>
+              </div>
+            </fieldset>
+            <fieldset class="stage3-question">
+              <legend>Насколько Вы уверены в ответе? (1 - совсем не уверен(а), 5 - абсолютно уверен(а))</legend>
+              <div class="stage3-options stage3-confidence">
+                <label class="survey-option stage3-option"><input type="radio" name="stage3Confidence" value="1">1</label>
+                <label class="survey-option stage3-option"><input type="radio" name="stage3Confidence" value="2">2</label>
+                <label class="survey-option stage3-option"><input type="radio" name="stage3Confidence" value="3">3</label>
+                <label class="survey-option stage3-option"><input type="radio" name="stage3Confidence" value="4">4</label>
+                <label class="survey-option stage3-option"><input type="radio" name="stage3Confidence" value="5">5</label>
+              </div>
+            </fieldset>
+            <label class="stage3-open-question">
+              <span>Что конкретно Вы можете вспомнить об этом человеке?</span>
+              <textarea id="stage3MemoryText" name="stage3MemoryText"></textarea>
+            </label>
+            <p class="form-error" id="stage3Error" role="alert"></p>
+            <button class="primary-action stage3-next" type="submit">Далее</button>
+          </div>
+        </form>
+      </section>
+
       <section class="view hidden" id="finishView" aria-labelledby="finishTitle">
         <div class="panel panel--narrow">
           <p class="eyebrow">Сессия завершена</p>

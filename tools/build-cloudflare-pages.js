@@ -10,6 +10,7 @@ const files = [
   "config.js",
   "index.html",
   "stage2.html",
+  "stage3.html",
   "styles.css"
 ];
 
